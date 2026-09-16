@@ -22,3 +22,23 @@ Stage Summary:
 - Prototipo completo y verificado en navegador. Stack: Next.js 16, TypeScript, Prisma/SQLite, shadcn/ui, recharts, framer-motion, z-ai-web-dev-sdk (solo backend).
 - Decisiones clave: auditoría determinista decide siempre (explicable); el LLM solo redacta el informe sobre hallazgos ya demostrados; huella criptográfica anti-duplicados; seed con 6 casos pendientes para demo en vivo.
 - Archivos clave: prisma/schema.prisma, scripts/seed.ts, src/lib/audit-rules.ts, src/lib/audit-agent.ts, src/app/api/**, src/components/auditor/**, src/store/app.ts, src/app/page.tsx.
+
+---
+Task ID: 2
+Agent: Super Z (main)
+Task: Reducir la terminología japonesa en la UI ("too much japanese") — español primero
+
+Work Log:
+- Barrido con grep de todos los términos japoneses (Jidoka, Andon, Kanban, Kaizen, Poka-yoke, Muda, Genchi Genbutsu, Heijunka + kanji 自働化/看板/行灯/ポカヨケ/現地現物/改善/無駄/平準化) en src/.
+- shell.tsx: nav "Tablero Andon"→"Panel de control", "Centro Jidoka"→"Agente en vivo", "Filosofía TPS"→"Diseño y principios", rol "Agente JIDOKA"→"Agente de IA", footer sin Toyota.
+- dashboard.tsx: "Muda evitado"→"Desperdicio evitado", "Flujo directo (jidoka)"→"(automático)", "Tendencia kaizen"→"Tendencia de mejora", "Andon activo"→"Semáforo ámbar".
+- jidoka.tsx/detalle.tsx/siniestros.tsx/cola.tsx/nueva-factura.tsx/tarifarios.tsx: eliminados Genchi Genbutsu, poka-yoke, andon, kaizen; "Bitácora JIDOKA"→"Bitácora del agente"; "5 Whys"→"5 porqués".
+- filosofia.tsx: reescrita — 8 principios con nombres en español (kanji eliminados), una sola mención de origen Toyota en la intro; pasos del motor en español.
+- audit-agent.ts: logs de decisión sin prefijo "JIDOKA·", "9 reglas poka-yoke"→"9 reglas deterministas"; prompt LLM reescrito con instrucción explícita de NO usar términos japoneses ni Toyota en el informe.
+- labels.ts/layout.tsx: metadata y roles en español llano.
+- Re-seed de la BD (JIDOKA_DISABLE_IA=1) para purgar mensajes antiguos con prefijo japonés. Estados: 22 APROBADA / 6 OBSERVADA / 4 RECHAZADA.
+- Verificado en navegador (Panel de control, Diseño y principios, cola, expediente, roles Agente/Taller) y lint completo limpio.
+
+Stage Summary:
+- La marca "JIDOKA" se conserva solo como nombre del producto (logo, título, footer); todo el copy operativa está en español natural. Cambio de nombre de marca disponible a pedido (1 línea).
+- Claves internas de código (vista "andon"/"jidoka", campo andon en API, componente PuntoAndon) se mantienen: no son visibles al usuario.

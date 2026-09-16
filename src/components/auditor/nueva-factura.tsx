@@ -408,7 +408,7 @@ export function NuevaFactura() {
             <Card className={cn("rounded-2xl border-dashed p-4 text-[12px] leading-relaxed text-muted-foreground")}>
               <p className="font-medium text-foreground">¿Qué pasa al enviar?</p>
               <p className="mt-1">
-                El agente normaliza las partidas, calcula la huella anti-duplicados, ejecuta las 9 reglas poka-yoke contra el tarifario pactado y decide: aprobar en flujo directo o detener la línea (andon) para el revisor humano.
+                El agente normaliza las partidas, calcula la huella anti-duplicados, ejecuta las 9 reglas anti-errores contra el tarifario pactado y decide: aprobar en flujo directo o detener la línea y escalar al revisor humano.
               </p>
             </Card>
           </div>

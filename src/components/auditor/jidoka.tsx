@@ -42,7 +42,7 @@ export function CentroJidoka() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error");
       toast({
-        title: `${numero}: ${json.hallazgos === 0 ? "sin hallazgos, flujo directo" : `${json.hallazgos} hallazgo(s), andon ${json.estado === "RECHAZADA" ? "rojo" : "amarillo"}`}`,
+        title: `${numero}: ${json.hallazgos === 0 ? "sin hallazgos, flujo directo" : `${json.hallazgos} hallazgo(s), semáforo ${json.estado === "RECHAZADA" ? "rojo" : "amarillo"}`}`,
         description: `Riesgo ${json.riesgo}/100 · discrepancia ${usd(json.montoDiscrepancia)}`,
       });
       bump();
@@ -64,7 +64,7 @@ export function CentroJidoka() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Centro Jidoka</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Agente en vivo</h1>
           <p className="text-sm text-muted-foreground">
             Consola del agente auditor: normaliza, compara contra el tarifario y detiene la línea solo ante anomalías.
           </p>
@@ -174,7 +174,7 @@ export function CentroJidoka() {
       {/* Observadas esperando humano */}
       {observadas.length > 0 && (
         <Card className="rounded-2xl p-5">
-          <TituloSeccion sub="Jidoka con juicio humano: el agente detuvo, el auditor decide">Andon amarillo — esperando decisión humana ({observadas.length})</TituloSeccion>
+          <TituloSeccion sub="Automatización con criterio: el agente detuvo, el auditor decide">Semáforo ámbar — esperando decisión humana ({observadas.length})</TituloSeccion>
           <div className="grid gap-2.5 md:grid-cols-2">
             {observadas.map((f) => (
               <div key={f.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/50 p-3.5">

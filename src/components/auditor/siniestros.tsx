@@ -38,7 +38,7 @@ export function Siniestros() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Siniestros</h1>
           <p className="text-sm text-muted-foreground">
-            Expedientes reportados por los asegurados — el contexto real contra el que el agente juzga cada factura (Genchi Genbutsu).
+            Expedientes reportados por los asegurados — el contexto real contra el que el agente juzga cada factura.
           </p>
         </div>
         <div className="relative">

@@ -181,7 +181,7 @@ export function DetalleFactura() {
       <div className="grid gap-4 lg:grid-cols-5">
         {/* Columna izquierda */}
         <div className="space-y-4 lg:col-span-3">
-          {/* Contexto del siniestro (Genchi Genbutsu: ir al lugar) */}
+          {/* Contexto del siniestro (el hecho real contra el que se juzga) */}
           <Card className="rounded-2xl p-5">
             <TituloSeccion sub="Contexto reportado — el agente juzga cada partida contra este hecho real">Siniestro {f.siniestro.numero}</TituloSeccion>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
@@ -198,7 +198,7 @@ export function DetalleFactura() {
           {/* Partidas vs tarifario */}
           <Card className="overflow-hidden rounded-2xl">
             <div className="p-5 pb-3">
-              <TituloSeccion sub="Cada partida cobrada contra el precio pactado en convenio — poka-yoke contra el tarifario">
+              <TituloSeccion sub="Cada partida cobrada contra el precio pactado en convenio — verificación determinista contra el tarifario">
                 Partidas facturadas vs tarifario
               </TituloSeccion>
             </div>
@@ -294,7 +294,7 @@ export function DetalleFactura() {
 
           {/* Hallazgos */}
           <Card className="rounded-2xl p-5">
-            <TituloSeccion sub={`Motor determinista: 9 reglas poka-yoke · riesgo ${f.riesgo}/100`}>
+            <TituloSeccion sub={`Motor determinista: 9 reglas · riesgo ${f.riesgo}/100`}>
               Hallazgos del agente ({f.hallazgos.length})
             </TituloSeccion>
             {f.hallazgos.length === 0 ? (
@@ -323,7 +323,7 @@ export function DetalleFactura() {
                           className="flex items-center gap-1 text-[11.5px] font-medium text-primary hover:underline"
                           onClick={() => setDetalleAbierto(detalleAbierto === h.id ? null : h.id)}
                         >
-                          Evidencia técnica (Genchi Genbutsu)
+                          Evidencia técnica
                           {detalleAbierto === h.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         </button>
                         {detalleAbierto === h.id && (
@@ -380,13 +380,13 @@ export function DetalleFactura() {
                   <p className="text-[13px] leading-relaxed">{f.informeIA.resumen}</p>
                   <div className="rounded-xl bg-secondary/60 p-3.5">
                     <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      <CircleAlert className="h-3 w-3" /> Causa raíz (5 Whys)
+                      <CircleAlert className="h-3 w-3" /> Causa raíz (5 porqués)
                     </p>
                     <p className="text-[12.5px] leading-relaxed text-secondary-foreground">{f.informeIA.causaRaiz}</p>
                   </div>
                   {f.informeIA.acciones.length > 0 && (
                     <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Kaizen — acciones sugeridas</p>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Mejoras sugeridas</p>
                       <ul className="space-y-1.5">
                         {f.informeIA.acciones.map((a, i) => (
                           <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed">
@@ -416,7 +416,7 @@ export function DetalleFactura() {
                   {[72, 96, 56].map((w, i) => (
                     <div key={i} className="h-3 animate-pulse rounded-full bg-secondary" style={{ width: `${w}%` }} />
                   ))}
-                  <p className="text-[11px] text-muted-foreground">Redacta resumen, recomendación y causa raíz con 5 Whys.</p>
+                  <p className="text-[11px] text-muted-foreground">Redacta resumen, recomendación y causa raíz con 5 porqués.</p>
                 </div>
               )}
             </div>
@@ -424,7 +424,7 @@ export function DetalleFactura() {
 
           {/* Bitácora del agente */}
           <Card className="rounded-2xl p-5">
-            <TituloSeccion sub="Trazabilidad completa del pipeline de auditoría">Bitácora JIDOKA</TituloSeccion>
+            <TituloSeccion sub="Trazabilidad completa del pipeline de auditoría">Bitácora del agente</TituloSeccion>
             <ol className="relative space-y-3 border-l border-border/70 pl-4">
               {f.logs.map((l) => (
                 <li key={l.id} className="relative">
@@ -477,7 +477,7 @@ export function DetalleFactura() {
           {/* Panel de acción */}
           {puedeDecidir ? (
             <Card className="rounded-2xl border-primary/25 p-5">
-              <TituloSeccion sub="Solo lo detenido por el andon llega a tu bandeja — decide con el expediente completo">Decisión del revisor</TituloSeccion>
+              <TituloSeccion sub="Solo lo detenido por el semáforo llega a tu bandeja — decide con el expediente completo">Decisión del revisor</TituloSeccion>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">

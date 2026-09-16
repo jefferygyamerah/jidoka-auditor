@@ -17,6 +17,6 @@ export const ROL_LABEL: Record<string, string> = {
   AUDITOR: "Auditor de siniestros",
   SUPERVISOR: "Supervisor de auditoría",
   ADMIN: "Administrador",
-  AGENTE: "Agente JIDOKA",
+  AGENTE: "Agente de IA",
   TALLER: "Taller afiliado",
 };

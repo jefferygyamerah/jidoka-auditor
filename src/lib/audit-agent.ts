@@ -52,17 +52,17 @@ export async function generarInformeIA(facturaId: string): Promise<InformeIA> {
 
   const system = `Eres el Agente Auditor de Siniestros de Istmo Seguros (Panamá), una aseguradora de autos. Auditas facturas de talleres contra el tarifario pactado y la siniestralidad reportada.
 
-Tu marco de trabajo es el Sistema de Producción Toyota (TPS) aplicado a la auditoría:
-- JIDOKA: detienes la línea solo cuando hay anomalías reales; no molestes al humano con ruido.
-- GENCHI GENBUTSU: juzga siempre desde los datos concretos de las partidas.
-- 5 WHYS: en causaRaiz, encadena porqués hasta la causa de fondo del comportamiento del taller (¿por qué ocurrió? → ¿por qué? → ...), de forma breve (2-4 enunciados encadenados).
-- KAIZEN: en acciones, propone mejoras concretas y accionables (para el taller o para el proceso).
+Forma de trabajar:
+- Audita con criterio: solo escala al humano cuando hay anomalías reales; no lo molestes con ruido.
+- Juzga siempre desde los datos concretos de las partidas, nunca desde suposiciones.
+- CAUSA RAÍZ: en causaRaiz, encadena porqués (¿por qué ocurrió? → ¿por qué? → ...) hasta la causa de fondo del comportamiento del taller, de forma breve (2-4 enunciados encadenados).
+- MEJORA CONTINUA: en acciones, propone mejoras concretas y accionables (para el taller o para el proceso).
 
-Estilo: español panameño profesional, conciso, sin emojis, sin markdown pesado. Respuesta EXCLUSIVAMENTE en JSON válido con este esquema:
+Estilo: español panameño profesional, conciso, sin emojis, sin markdown pesado. No uses términos en japonés ni marcas (jidoka, kaizen, andon, muda, Toyota): habla en lenguaje llano de auditoría y seguros. Respuesta EXCLUSIVAMENTE en JSON válido con este esquema:
 {
   "resumen": "2-4 oraciones con el veredicto económico: monto facturado, hallazgos clave con montos y qué se recomienda ajustar",
   "recomendacion": "APROBAR" | "APROBAR_CON_AJUSTE" | "ESCALAR" | "RECHAZAR",
-  "causaRaiz": "análisis 5 Whys en 2-4 enunciados encadenados; si la factura está limpia, describe por qué el proceso funcionó",
+  "causaRaiz": "análisis de causa raíz en 2-4 enunciados encadenados (técnica de los 5 porqués); si la factura está limpia, describe por qué el proceso funcionó",
   "acciones": ["acción concreta 1 (máx 1 línea)", "acción 2", "acción 3"],
   "confianza": 0-100
 }
@@ -80,7 +80,7 @@ Fecha de emisión: ${factura.fechaEmision.toISOString().slice(0, 10)} · Total d
 PARTIDAS FACTURADAS:
 ${partidasTxt}
 
-HALLAZGOS DEL MOTOR DETERMINISTA (poka-yoke, ya verificados contra tarifario y duplicados):
+HALLAZGOS DEL MOTOR DETERMINISTA (ya verificados contra tarifario y duplicados):
 ${hallazgosTxt}`;
 
   let informe: InformeIA;
@@ -119,7 +119,7 @@ ${hallazgosTxt}`;
         ? `¿Por qué? Se detectaron desviaciones al comparar contra el tarifario pactado. ¿Por qué? El taller cobró por encima del estándar o registró partidas repetidas. ¿Por qué? Posible debilidad en su control interno de facturación; conviene verificación directa y recordatorio del convenio.`
         : `¿Por qué la factura fluyó sin fricción? Porque las partidas coinciden con el tarifario y el daño reportado; el estándar (tarifario pactado) se está respetando.`,
       acciones: factura.hallazgos.length
-        ? ["Verificar con el perito asignado las partidas señaladas.", "Solicitar al taller nota de crédito por las discrepancias.", "Registrar el patrón en la ficha kaizen del taller."]
+        ? ["Verificar con el perito asignado las partidas señaladas.", "Solicitar al taller nota de crédito por las discrepancias.", "Registrar el patrón en la ficha de seguimiento del taller."]
         : ["Aprobar y liquidar sin ajustes.", "Mantener monitoreo estadístico por taller."],
       confianza: 70,
     };
@@ -170,8 +170,8 @@ export async function ejecutarAuditoria(facturaId: string): Promise<{ riesgo: nu
   await log(
     "REGLAS",
     resultado.hallazgos.length
-      ? `9 reglas poka-yoke ejecutadas: ${resultado.hallazgos.length} hallazgo(s) — ${resultado.hallazgos.map((h) => h.tipo).join(", ")}. Riesgo ${resultado.riesgo}/100.`
-      : "9 reglas poka-yoke ejecutadas: 0 hallazgos. Todas las partidas cumplen el tarifario pactado."
+      ? `9 reglas deterministas ejecutadas: ${resultado.hallazgos.length} hallazgo(s) — ${resultado.hallazgos.map((h) => h.tipo).join(", ")}. Riesgo ${resultado.riesgo}/100.`
+      : "9 reglas deterministas ejecutadas: 0 hallazgos. Todas las partidas cumplen el tarifario pactado."
   );
 
   const estadoFinal = resultado.estadoSugerido;
@@ -187,15 +187,15 @@ export async function ejecutarAuditoria(facturaId: string): Promise<{ riesgo: nu
   });
 
   if (estadoFinal === "APROBADA") {
-    await log("DECISION", `JIDOKA·flujo directo: sin anomalías, la factura se aprueba automáticamente. Cero horas humanas consumidas.`);
+    await log("DECISION", `Flujo directo: sin anomalías, la factura se aprueba automáticamente. Cero horas humanas consumidas.`);
   } else if (estadoFinal === "RECHAZADA") {
-    await log("DECISION", `JIDOKA·línea detenida: hallazgo crítico detectado. Factura marcada RECHAZADA pendiente de confirmación humana.`);
+    await log("DECISION", `Línea detenida: hallazgo crítico detectado. Factura marcada RECHAZADA pendiente de confirmación humana.`);
   } else {
-    await log("DECISION", `JIDOKA·andon amarillo: la factura pasa a OBSERVADA con riesgo ${resultado.riesgo}/100 y se escala al revisor humano.`);
+    await log("DECISION", `Semáforo ámbar: la factura pasa a OBSERVADA con riesgo ${resultado.riesgo}/100 y se escala al revisor humano.`);
   }
 
   // El informe IA se genera en segundo plano (no bloquea la decisión determinista)
-  await log("IA", "Redactando informe ejecutivo con análisis de causa raíz (5 Whys)…");
+  await log("IA", "Redactando informe ejecutivo con análisis de causa raíz (5 porqués)…");
   void generarInformeIA(facturaId)
     .then(() => {
       void db.logAgente.create({

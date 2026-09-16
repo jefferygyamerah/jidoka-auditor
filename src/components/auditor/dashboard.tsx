@@ -73,7 +73,7 @@ export function Dashboard() {
       {/* Encabezado */}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tablero Andon</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Panel de control</h1>
           <p className="text-sm text-muted-foreground">
             {data.totalFacturas} facturas auditadas por el agente · detectar temprano, detener solo lo necesario
           </p>
@@ -94,14 +94,14 @@ export function Dashboard() {
       {/* KPIs principales */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          titulo="Muda evitado (recuperado)"
+          titulo="Desperdicio evitado (recuperado)"
           valor={usdK(data.montoRecuperado)}
           detalle={data.montoEnNegociacion > 0 ? `+ ${usd(data.montoEnNegociacion)} en negociación` : "Sin montos en negociación"}
           icono={<HandCoins className="h-4 w-4" />}
           tono="positivo"
         />
         <KpiCard
-          titulo="Flujo directo (jidoka)"
+          titulo="Flujo directo (automático)"
           valor={`${data.pctFlujoDirecto}%`}
           detalle={`${data.facturasLimpias} de ${data.totalFacturas} facturas aprobadas sin tocar a un humano`}
           icono={<Bot className="h-4 w-4" />}
@@ -139,7 +139,7 @@ export function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="nums text-2xl font-semibold tracking-tight text-amber-700">{data.andon.amarillo}</p>
-              <p className="truncate text-xs text-muted-foreground">Andon activo: esperan decisión humana →</p>
+              <p className="truncate text-xs text-muted-foreground">Semáforo ámbar: esperan decisión humana →</p>
             </div>
           </Card>
         </button>
@@ -181,7 +181,7 @@ export function Dashboard() {
         </Card>
 
         <Card className="rounded-2xl p-5">
-          <TituloSeccion sub="Discrepancia detectada por taller — foco kaizen">Top talleres con observaciones</TituloSeccion>
+          <TituloSeccion sub="Discrepancia detectada por taller — foco de mejora">Top talleres con observaciones</TituloSeccion>
           <div className="space-y-3.5">
             {data.topTalleres.length === 0 && <p className="text-sm text-muted-foreground">Sin observaciones registradas.</p>}
             {data.topTalleres.map((t) => {
@@ -211,7 +211,7 @@ export function Dashboard() {
       </div>
 
       <Card className="rounded-2xl p-5">
-        <TituloSeccion sub="Facturas auditadas y monto en disputa por semana (últimas 10)">Tendencia kaizen</TituloSeccion>
+        <TituloSeccion sub="Facturas auditadas y monto en disputa por semana (últimas 10)">Tendencia de mejora</TituloSeccion>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data.tendencia} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>

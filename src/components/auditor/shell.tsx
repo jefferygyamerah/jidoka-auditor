@@ -20,19 +20,19 @@ import type { Vista } from "@/store/app";
 
 const ROLES: { id: Rol; label: string; corto: string }[] = [
   { id: "AUDITOR", label: "Auditor de siniestros", corto: "Auditor" },
-  { id: "AGENTE", label: "Agente JIDOKA", corto: "Agente" },
+  { id: "AGENTE", label: "Agente de IA", corto: "Agente" },
   { id: "TALLER", label: "Taller afiliado", corto: "Taller" },
   { id: "ADMIN", label: "Administrador", corto: "Admin" },
 ];
 
 const NAV: { vista: Vista; label: string; icon: React.ReactNode; roles: Rol[]; labelTaller?: string }[] = [
-  { vista: "andon", label: "Tablero Andon", icon: <LayoutDashboard className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
-  { vista: "jidoka", label: "Centro Jidoka", icon: <Bot className="h-4 w-4" />, roles: ["AGENTE"] },
+  { vista: "andon", label: "Panel de control", icon: <LayoutDashboard className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
+  { vista: "jidoka", label: "Agente en vivo", icon: <Bot className="h-4 w-4" />, roles: ["AGENTE"] },
   { vista: "cola", label: "Auditoría", labelTaller: "Mis facturas", icon: <ClipboardCheck className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
   { vista: "nueva", label: "Nueva factura", icon: <FilePlus2 className="h-4 w-4" />, roles: ["TALLER"] },
   { vista: "tarifarios", label: "Tarifarios y parámetros", icon: <Settings2 className="h-4 w-4" />, roles: ["ADMIN"] },
   { vista: "siniestros", label: "Siniestros", icon: <Car className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
-  { vista: "filosofia", label: "Filosofía TPS", icon: <BookOpen className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
+  { vista: "filosofia", label: "Diseño y principios", icon: <BookOpen className="h-4 w-4" />, roles: ["AUDITOR", "AGENTE", "TALLER", "ADMIN"] },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -120,7 +120,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {rol === "AUDITOR" && "Revisa solo lo que el agente detiene: cero revisión de facturas limpias."}
               {rol === "AGENTE" && "Audito cada partida contra el tarifario y detengo la línea ante anomalías."}
               {rol === "TALLER" && "Sube facturas y conoce al instante si cumplen el convenio pactado."}
-              {rol === "ADMIN" && "Mantiene tarifarios pactados y parámetros poka-yoke del motor."}
+              {rol === "ADMIN" && "Mantiene tarifarios pactados y parámetros del motor."}
             </p>
           </div>
         </aside>
@@ -152,7 +152,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <footer className="mt-auto border-t border-border/50 bg-white/60">
         <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-1 px-4 py-4 text-[11px] text-muted-foreground sm:flex-row lg:px-8">
           <p>
-            JIDOKA · Sistema de Producción Toyota aplicado a la auditoría de facturación de siniestros — demo para hackatón
+            JIDOKA · Auditoría inteligente de facturación de siniestros — demo para hackatón
           </p>
           <p className="nums">USD · ITBMS 7% · Panamá</p>
         </div>

@@ -51,7 +51,7 @@ export function Cola() {
           <p className="text-sm text-muted-foreground">
             {esTaller
               ? "Cada factura que subes es auditada al instante por el agente contra el tarifario pactado."
-              : "Tablero kanban del flujo de auditoría: el agente pre-clasifica todo; tú solo atiendes lo detenido."}
+              : "Tablero del flujo de auditoría: el agente pre-clasifica todo; tú solo atiendes lo detenido."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

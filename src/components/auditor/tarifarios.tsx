@@ -88,7 +88,7 @@ export function Tarifarios() {
         body: JSON.stringify(params),
       });
       if (!res.ok) throw new Error();
-      toast({ title: "Parámetros actualizados", description: "Las próximas auditorías aplicarán los nuevos umbrales poka-yoke." });
+      toast({ title: "Parámetros actualizados", description: "Las próximas auditorías aplicarán los nuevos umbrales del motor." });
     } catch {
       toast({ title: "No se pudo guardar", variant: "destructive" });
     } finally {
@@ -104,7 +104,7 @@ export function Tarifarios() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tarifarios pactados y parámetros</h1>
           <p className="text-sm text-muted-foreground">
-            El estándar (tarifario) es la referencia contra la que el agente juzga cada cobro: mantenerlo vivo es parte del kaizen.
+            El estándar (tarifario) es la referencia contra la que el agente juzga cada cobro: mantenerlo vivo alimenta la mejora continua.
           </p>
         </div>
         <Select value={tallerId} onValueChange={setTallerId}>
@@ -179,7 +179,7 @@ export function Tarifarios() {
 
         <div className="space-y-4">
           <Card className="rounded-2xl p-5">
-            <TituloSeccion sub="Umbrales poka-yoke que aplican a todas las auditorías">
+            <TituloSeccion sub="Umbrales del motor que aplican a todas las auditorías">
               <span className="flex items-center gap-1.5">
                 <Settings2 className="h-4 w-4" /> Parámetros del motor
               </span>
@@ -222,8 +222,8 @@ export function Tarifarios() {
               <Info className="h-3.5 w-3.5" /> Filosofía del estándar
             </p>
             <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
-              En TPS, el estándar no es burocracia: es la base de la mejora. Al ajustar un precio pactado con datos de mercado, el
-              motor poka-yoke se actualiza al instante — sin recompilar reglas ni reentrenar modelos. Auditoría determinista y
+              El estándar no es burocracia: es la base de la mejora continua. Al ajustar un precio pactado con datos de mercado, el
+              motor de reglas se actualiza al instante — sin recompilar reglas ni reentrenar modelos. Auditoría determinista y
               explicable, siempre.
             </p>
           </Card>
