@@ -1,0 +1,92 @@
+{
+  "id": "EXP-10",
+  "titulo": "R10 · parada: taller sin tarifario",
+  "descripcion": "No hay convenio cargado: cada línea queda SIN EVALUAR, el informe se marca INCOMPLETO y el monto total queda bloqueado.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [],
+  "siniestro": {
+    "numero": "SIN-EXP10",
+    "poliza": "AUT-DEMO-EXP10",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "TRASERA",
+    "descripcion": "Alcance trasero.",
+    "montoReserva": 5150
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP10",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1002",
+          "cantidad": 1,
+          "precioUnitario": 268,
+          "descripcion": "Parachoques trasero",
+          "categoria": "REPUESTO",
+          "unidad": "UND"
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 3,
+          "precioUnitario": 29,
+          "descripcion": "Desmontaje e instalación de parachoques",
+          "categoria": "MANO_OBRA",
+          "unidad": "HRS"
+        },
+        {
+          "codigo": "I-2001",
+          "cantidad": 2,
+          "precioUnitario": 39,
+          "descripcion": "Pintura base poliuretano",
+          "categoria": "INSUMO",
+          "unidad": "GLB"
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 66,
+          "descripcion": "Administración de siniestro",
+          "categoria": "HONORARIO",
+          "unidad": "SRV"
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP10",
+    "sinEvaluar": true,
+    "riesgo": 100,
+    "montoDiscrepancia": 0,
+    "hallazgos": [
+      {
+        "regla": "R10",
+        "linea": 1
+      },
+      {
+        "regla": "R10",
+        "linea": 2
+      },
+      {
+        "regla": "R10",
+        "linea": 3
+      },
+      {
+        "regla": "R10",
+        "linea": 4
+      }
+    ]
+  }
+}

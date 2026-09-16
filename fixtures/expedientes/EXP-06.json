@@ -1,0 +1,81 @@
+{
+  "id": "EXP-06",
+  "titulo": "R4 · partida no autorizada",
+  "descripcion": "Código inexistente en el convenio (kit de luces LED deportivas): hallazgo MEDIA, monto completo en discrepancia.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "M-3001",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Desmontaje e instalación de parachoques",
+      "unidad": "HRS",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP06",
+    "poliza": "AUT-DEMO-EXP06",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "FRENTE",
+    "descripcion": "Colisión frontal leve.",
+    "montoReserva": 3850
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP06",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-9999",
+          "cantidad": 1,
+          "precioUnitario": 420,
+          "descripcion": "Kit de luces LED deportivas",
+          "categoria": "REPUESTO",
+          "unidad": "UND"
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 2,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP06",
+    "sinEvaluar": false,
+    "riesgo": 12,
+    "montoDiscrepancia": 420,
+    "hallazgos": [
+      {
+        "regla": "R4",
+        "linea": 1
+      }
+    ]
+  }
+}
