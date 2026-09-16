@@ -24,6 +24,7 @@ interface Fila {
   cantidad: string;
   unidad: string;
   precio: string;
+  contexto: string;
 }
 
 let contador = 1;
@@ -35,6 +36,7 @@ const nuevaFila = (p?: Partial<Fila>): Fila => ({
   cantidad: "1",
   unidad: "UND",
   precio: "",
+  contexto: "",
   ...p,
 });
 
@@ -115,15 +117,16 @@ export function NuevaFactura() {
           numero: numero.trim(),
           montoDeclarado: totalManual ? Number(totalManual) : undefined,
           partidas: filas
-            .filter((f) => f.codigo)
-            .map((f) => ({
-              categoria: f.categoria,
-              codigo: f.codigo,
-              descripcion: f.descripcion,
-              cantidad: Number(f.cantidad) || 0,
-              unidad: f.unidad,
-              precioUnitario: Number(f.precio) || 0,
-            })),
+          .filter((f) => f.codigo)
+          .map((f) => ({
+            categoria: f.categoria,
+            codigo: f.codigo,
+            descripcion: f.descripcion,
+            cantidad: Number(f.cantidad) || 0,
+            unidad: f.unidad,
+            precioUnitario: Number(f.precio) || 0,
+            contexto: f.contexto.trim() || undefined,
+          })),
         }),
       });
       const json = await res.json();
@@ -144,7 +147,7 @@ export function NuevaFactura() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Nueva factura de taller</h1>
         <p className="text-sm text-muted-foreground">
-          Registra la factura del siniestro: el agente la audita al instante contra el tarifario pactado y te responde con el veredicto.
+          Registra la factura del siniestro: el agente la audita al instante contra el tarifario pactado y responde con un informe de discrepancias.
         </p>
       </div>
 
@@ -167,7 +170,7 @@ export function NuevaFactura() {
           </div>
           {resultado.hallazgos.length === 0 ? (
             <p className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-[13px] text-emerald-800">
-              Sin hallazgos: la factura cumple el convenio y se aprobó en flujo directo, sin esperar revisión humana.
+              Sin hallazgos: la factura cumple el convenio. El informe queda disponible y el proceso de pago sigue su curso con la aseguradora.
             </p>
           ) : (
             <div className="mt-4 space-y-2">
@@ -304,12 +307,20 @@ export function NuevaFactura() {
                   <div key={f.key} className="grid grid-cols-[28px_1fr_68px_88px_36px] items-center gap-2 rounded-xl border border-border/50 p-2 sm:grid-cols-[28px_1.4fr_1fr_64px_64px_88px_36px]">
                     <span className="nums text-center text-[11px] text-muted-foreground">{idx + 1}</span>
                     <div className="space-y-1">
-                      <Input
-                        value={f.codigo}
-                        onChange={(e) => editar(f.key, { codigo: e.target.value.toUpperCase() })}
-                        placeholder="Código"
-                        className="nums h-7 rounded-lg text-[12px]"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          value={f.codigo}
+                          onChange={(e) => editar(f.key, { codigo: e.target.value.toUpperCase() })}
+                          placeholder="Código"
+                          className="nums h-7 rounded-lg text-[12px]"
+                        />
+                        <Input
+                          value={f.contexto}
+                          onChange={(e) => editar(f.key, { contexto: e.target.value })}
+                          placeholder="Contexto (opcional) — posición o hora"
+                          className="h-7 rounded-lg text-[12px]"
+                        />
+                      </div>
                       <Input
                         value={f.descripcion}
                         onChange={(e) => editar(f.key, { descripcion: e.target.value })}
@@ -408,7 +419,7 @@ export function NuevaFactura() {
             <Card className={cn("rounded-2xl border-dashed p-4 text-[12px] leading-relaxed text-muted-foreground")}>
               <p className="font-medium text-foreground">¿Qué pasa al enviar?</p>
               <p className="mt-1">
-                El agente normaliza las partidas, calcula la huella anti-duplicados, ejecuta las 9 reglas anti-errores contra el tarifario pactado y decide: aprobar en flujo directo o detener la línea y escalar al revisor humano.
+                El agente normaliza las partidas, calcula la huella anti-duplicados y ejecuta las reglas poka-yoke contra el tarifario pactado: redacta un informe de discrepancias línea por línea con evidencia y escala a revisión humana lo que lo requiera. Nunca decide pagos.
               </p>
             </Card>
           </div>

@@ -8,7 +8,14 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────────────────────
-// JIDOKA · Auditor Agéntico de Facturación de Siniestros
+// JIDOKA · Agente Auditor de Facturas de Siniestros (autos)
+// Alineado al alcance acordado del reto #44 (hackIAthon Viamatica):
+// · Salida = informe línea por línea de discrepancias con evidencia.
+// · El agente NO aprueba ni rechaza pagos; decide el auditor humano.
+// · Regla de parada: la línea afectada se aísla; un problema de
+//   evidencia compartida bloquea las conclusiones dependientes y el
+//   monto queda "sin evaluar" de forma visible.
+// · Revisión por hallazgo: aceptar / descartar con motivo / pedir evidencia.
 // Aseguradora: Istmo Seguros (Panamá) · Moneda: USD · ITBMS 7%
 // ─────────────────────────────────────────────────────────────
 
@@ -54,7 +61,7 @@ model Siniestro {
   zonaDanio       String // FRENTE | TRASERA | LATERAL_IZQ | LATERAL_DER | MULTIPLE | VIDRIOS
   descripcion     String
   montoReserva    Float
-  estado          String    @default("EN_TALLER") // EN_TALLER | EN_AUDITORIA | LIQUIDADO | CERRADO
+  estado          String    @default("EN_TALLER") // EN_TALLER | EN_AUDITORIA | LIQUIDADO | CERRADO (lo mueve el proceso del asegurador, no este agente)
   createdAt       DateTime  @default(now())
   facturas        Factura[]
 }
@@ -70,12 +77,15 @@ model Factura {
   fechaIngreso    DateTime  @default(now())
   montoTotal      Float // total declarado (con ITBMS)
   itbmsPct        Float     @default(7)
-  estadoAuditoria String    @default("RECIBIDA") // RECIBIDA | EN_AUDITORIA | OBSERVADA | APROBADA | RECHAZADA
-  riesgo          Int       @default(0) // 0-100
-  huella          String    @default("") // fingerprint anti-duplicados
-  informeIA       String? // JSON: resumen, recomendacion, causaRaiz, acciones, confianza
+  estadoAuditoria String    @default("RECIBIDA") // RECIBIDA | EN_AUDITORIA | PARA_REVISION | CERRADA — estados del flujo de auditoría, NUNCA de pago
+  riesgo          Int       @default(0) // 0-100 (severidad consolidada de hallazgos)
+  huella          String    @default("") // fingerprint anti-duplicados (R3)
+  informeAgente   String? // JSON: resumen línea por línea + estado (LISTO/INCOMPLETO) — nunca recomendación de pago
   informeEnCurso  Boolean   @default(false)
-  montoSugerido   Float? // monto ajustado propuesto por el agente
+  montoAjusteProp Float? // suma de ajustes de línea PROPUESTOS por el motor; no vinculante, solo referencia
+  montoSinEvaluar Float? // monto no evaluable por evidencia faltante/compartida inválida (regla de parada)
+  sinEvaluar      Boolean   @default(false) // true = el informe está incompleto y lo indica de forma visible
+  notaBloqueo     String? // motivo del bloqueo afirmativo cuando sinEvaluar = true
   createdAt       DateTime  @default(now())
 
   partidas   Partida[]
@@ -100,6 +110,7 @@ model Partida {
   unidad         String
   precioUnitario Float // precio cobrado
   subtotal       Float
+  contexto       String? // posición o instancia documentada (p.ej. "puerta del. izq.", "dosis 2 de 3, 09:40") — repeticiones legítimas tienen contextos distintos
 
   @@index([facturaId])
 }
@@ -114,10 +125,17 @@ model Hallazgo {
   severidad         String // BAJA | MEDIA | ALTA | CRITICA
   descripcion       String
   montoDiscrepancia Float    @default(0)
-  detalle           String   @default("") // JSON con cobrado vs pactado
+  detalle           String   @default("") // JSON: cobrado vs pactado + citas de evidencia (fuente y localizador)
+  evidenciaPendiente String? // qué documento/dato exacto se pide cuando el auditor solicita evidencia
+  estadoRevision    String   @default("PENDIENTE") // PENDIENTE | ACEPTADO | DESCARTADO | EVIDENCIA_SOLICITADA
+  comentarioRevision String? // motivo obligatorio del auditor en DESCARTADO/EVIDENCIA_SOLICITADA
+  revisadoPor       String?
+  revisadoEn        DateTime?
+  ajustePropuesto   Float? // ajuste de línea propuesto por el motor (no vinculante)
   createdAt         DateTime @default(now())
 
   @@index([facturaId])
+  @@index([estadoRevision])
 }
 
 model LogAgente {
@@ -125,7 +143,7 @@ model LogAgente {
   facturaId String
   factura   Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   paso      Int
-  etapa     String // RECEPCION | NORMALIZACION | REGLAS | IA | DECISION
+  etapa     String // RECEPCION | NORMALIZACION | REGLAS | IA | DECISION | PARADA | HUMANO
   mensaje   String
   creadoEn  DateTime @default(now())
 
@@ -136,11 +154,11 @@ model Revision {
   id            String   @id @default(cuid())
   facturaId     String
   factura       Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  hallazgoId    String? // revisión por hallazgo (aceptar / descartar / pedir evidencia)
   auditor       String
   rol           String // AUDITOR | SUPERVISOR | ADMIN
-  accion        String // APROBAR | RECHAZAR | ESCALAR | OBSERVAR
+  accion        String // ACEPTAR_HALLAZGO | DESCARTAR_HALLAZGO | PEDIR_EVIDENCIA | REAUDITAR
   comentario    String
-  montoAprobado Float?
   fecha         DateTime @default(now())
 
   @@index([facturaId])
@@ -150,5 +168,5 @@ model Configuracion {
   id                String @id @default("GLOBAL")
   toleranciaPct     Float  @default(2) // % tolerado sobre precio pactado
   topeHonorariosPct Float  @default(20) // honorarios máx. como % de insumos+repuestos+mano de obra
-  umbralAutoajuste  Float  @default(50) // discrepancias menores a este monto (USD) el agente propone ajuste automático
+  umbralAutoajuste  Float  @default(50) // bajo este monto (USD) el motor PROPUESTA ajuste de línea (nunca lo aplica solo)
 }

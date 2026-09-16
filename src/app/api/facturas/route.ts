@@ -18,13 +18,13 @@ export async function GET(req: NextRequest) {
 
   const facturas = await db.factura.findMany({
     where: {
-      ...(estado ? { estadoAuditoria: estado } : {}),
-      ...(tallerId ? { tallerId } : {}),
+      ...(estado ? { estadoAuditoria: estado } : null),
+      ...(tallerId ? { tallerId } : null),
     },
     include: {
       taller: { select: { id: true, nombre: true, ciudad: true } },
-      siniestro: { select: { id: true, numero: true, vehiculo: true, placa: true, zonaDanio: true, asegurado: true, montoReserva: true } },
-      hallazgos: { select: { severidad: true, montoDiscrepancia: true } },
+      siniestro: { select: { id: true, numero: true, vehiculo: true, placa: true, zonaDanio: true, asegurado: true, descripcion: true, montoReserva: true } },
+      hallazgos: { select: { severidad: true, montoDiscrepancia: true, estadoRevision: true, regla: true } },
       revisiones: { orderBy: { fecha: "desc" }, take: 1 },
     },
     orderBy: { fechaIngreso: "desc" },
@@ -46,14 +46,17 @@ export async function GET(req: NextRequest) {
       estadoAuditoria: f.estadoAuditoria,
       riesgo: f.riesgo,
       montoTotal: f.montoTotal,
-      montoSugerido: f.montoSugerido,
+      montoAjusteProp: f.montoAjusteProp,
+      montoSinEvaluar: f.montoSinEvaluar,
+      sinEvaluar: f.sinEvaluar,
       fechaEmision: f.fechaEmision.toISOString(),
       fechaIngreso: f.fechaIngreso.toISOString(),
       informeEnCurso: f.informeEnCurso,
-      tieneInforme: Boolean(f.informeIA),
+      tieneInforme: Boolean(f.informeAgente),
       taller: f.taller,
       siniestro: f.siniestro,
       hallazgosCount: f.hallazgos.length,
+      hallazgosPendientes: f.hallazgos.filter((h) => h.estadoRevision === "PENDIENTE").length,
       severidadMaxima: severidadMaxima(f.hallazgos.map((h) => h.severidad)),
       montoDiscrepancia: round2(f.hallazgos.reduce((a, h) => a + h.montoDiscrepancia, 0)),
       ultimaAccion: f.revisiones[0]?.accion ?? null,
@@ -69,6 +72,7 @@ interface PartidaInput {
   cantidad: number;
   unidad: string;
   precioUnitario: number;
+  contexto?: string | null; // posición/instancia documentada — repeticiones legítimas
 }
 
 // POST /api/facturas — el taller sube una factura y el agente la audita al instante
@@ -102,8 +106,8 @@ export async function POST(req: NextRequest) {
     cantidad: Math.max(0, Number(p.cantidad) || 0),
     unidad: String(p.unidad ?? "UND"),
     precioUnitario: Math.max(0, round2(Number(p.precioUnitario) || 0)),
+    contexto: p.contexto ? String(p.contexto).trim() || null : null,
   }));
-  for (const p of limpias) p.descripcion = p.descripcion;
   const subtotales = limpias.map((p) => ({ ...p, subtotal: round2(p.cantidad * p.precioUnitario) }));
   const subtotal = round2(subtotales.reduce((a, p) => a + p.subtotal, 0));
   const montoTotal = montoDeclarado != null && montoDeclarado > 0 ? round2(montoDeclarado) : round2(subtotal * 1.07);
@@ -133,6 +137,12 @@ export async function POST(req: NextRequest) {
     numero: factura.numero,
     montoTotal,
     ...resultado,
-    hallazgos: completa.hallazgos.map((h) => ({ tipo: h.tipo, severidad: h.severidad, descripcion: h.descripcion, montoDiscrepancia: h.montoDiscrepancia })),
+    hallazgos: completa.hallazgos.map((h) => ({
+      tipo: h.tipo,
+      severidad: h.severidad,
+      descripcion: h.descripcion,
+      montoDiscrepancia: h.montoDiscrepancia,
+      estadoRevision: h.estadoRevision,
+    })),
   });
 }

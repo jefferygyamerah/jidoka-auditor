@@ -3,9 +3,21 @@
 // Compara cada factura contra el tarifario pactado, detecta
 // duplicados, topes de honorarios e inconsistencias con el
 // siniestro. 100% auditable y reproducible.
+//
+// Contrato acordado (tarea #44 · hackIAthon Viamatica):
+// · El motor PROPONE hallazgos con cita de evidencia; NUNCA
+//   aprueba ni rechaza pagos ni emite montos aprobados.
+// · Regla de parada (jidoka): una línea con evidencia faltante o
+//   conflicto se aísla (sin evaluar) y el informe lo indica de
+//   forma visible; sin evidencia compartida válida, las
+//   conclusiones dependientes quedan bloqueadas.
+// · Duplicado = misma partida SIN posiciones/instancias
+//   documentadas distintas. La repetición legítima con contexto
+//   distinto documentado NO es duplicado.
 // ─────────────────────────────────────────────────────────────
 import crypto from "crypto";
 import { db } from "@/lib/db";
+import type { EvidenciaCita } from "@/lib/types";
 
 export type Severidad = "BAJA" | "MEDIA" | "ALTA" | "CRITICA";
 
@@ -16,7 +28,10 @@ export interface HallazgoPropuesto {
   severidad: Severidad;
   descripcion: string;
   montoDiscrepancia: number;
+  ajustePropuesto?: number | null;
   detalle: Record<string, unknown>;
+  evidencia: EvidenciaCita[];
+  evidenciaPendiente?: string | null;
 }
 
 export const PESO_SEVERIDAD: Record<Severidad, number> = {
@@ -36,6 +51,7 @@ export const ETIQUETA_REGLA: Record<string, string> = {
   R7: "Inconsistente con el siniestro",
   R8: "Tope de honorarios excedido",
   R9: "Reserva excedida",
+  R10: "Parada por evidencia faltante",
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -64,13 +80,14 @@ function zonaDePartida(descripcion: string): string | null {
 }
 
 /**
- * Ejecuta las 9 reglas deterministas sobre una factura ya persistida
- * (con partidas). Devuelve los hallazgos propuestos y el score de riesgo.
+ * Ejecuta las reglas deterministas sobre una factura ya persistida
+ * (con partidas). Devuelve hallazgos con evidencia y el estado del
+ * informe (completo o incompleto por parada). No decide pagos.
  */
 export async function auditarReglas(facturaId: string) {
   const config = await db.configuracion.findUnique({ where: { id: "GLOBAL" } });
   const tolerancia = config?.toleranciaPct ?? 2;
-  const topeHonorarios = config?.topeHonorariosPct ?? 15;
+  const topeHonorarios = config?.topeHonorariosPct ?? 20;
   const umbralAutoajuste = config?.umbralAutoajuste ?? 50;
 
   const factura = await db.factura.findUniqueOrThrow({
@@ -79,11 +96,17 @@ export async function auditarReglas(facturaId: string) {
   });
   const tarifario = await db.tarifarioItem.findMany({ where: { tallerId: factura.tallerId } });
   const mapaTarifario = new Map(tarifario.map((t) => [t.codigo, t]));
+  const nombreTarifario = `Tarifario pactado · ${factura.taller.nombre}`;
 
   const hallazgos: HallazgoPropuesto[] = [];
   let subtotalDeclarado = 0;
   let subtotalHonorarios = 0;
   let subtotalRepuestosInsumos = 0;
+
+  // ── Regla de parada afirmativa: sin tarifario pactado no hay base de
+  // comparación para ningún precio. Se aísla TODO monto dependiente y el
+  // informe continúa solo con lo verificable internamente (R2/R3/R6).
+  const paradaGlobal = tarifario.length === 0;
 
   for (const p of factura.partidas) {
     subtotalDeclarado += p.subtotal;
@@ -92,7 +115,27 @@ export async function auditarReglas(facturaId: string) {
 
     const pactado = mapaTarifario.get(p.codigo);
 
-    // R1 · Precio fuera de tarifario (poka-yoke contra el tarifario pactado)
+    if (paradaGlobal) {
+      // Línea aislada: monto no evaluable contra tarifario (falta la evidencia compartida).
+      hallazgos.push({
+        partidaId: p.id,
+        regla: "R10",
+        tipo: ETIQUETA_REGLA.R10,
+        severidad: "CRITICA",
+        descripcion: `Línea ${p.linea} «${p.descripcion}» queda sin evaluar: no existe tarifario pactado cargado para ${factura.taller.nombre}. Solicitar el convenio vigente antes de concluir montos.`,
+        montoDiscrepancia: 0,
+        ajustePropuesto: null,
+        detalle: { codigo: p.codigo, linea: p.linea, motivo: "TARIFARIO_AUSENTE" },
+        evidencia: [
+          { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} (cód. ${p.codigo})` },
+          { fuente: nombreTarifario, localizador: "no cargado en el sistema" },
+        ],
+        evidenciaPendiente: `Tarifario pactado vigente de ${factura.taller.nombre} (con código ${p.codigo})`,
+      });
+      continue; // R1/R4/R5/R7 no aplican sin base de comparación
+    }
+
+    // R1 · Precio fuera de tarifario (comparación contra el convenio)
     if (pactado) {
       const desvioPct = ((p.precioUnitario - pactado.precioPactado) / pactado.precioPactado) * 100;
       if (desvioPct > tolerancia) {
@@ -104,6 +147,7 @@ export async function auditarReglas(facturaId: string) {
           severidad,
           descripcion: `«${p.descripcion}» se cobra a $${round2(p.precioUnitario)}/${p.unidad} pero el tarifario pactado con ${factura.taller.nombre} establece $${round2(pactado.precioPactado)}/${p.unidad} (+${round2(desvioPct)}%).`,
           montoDiscrepancia: round2((p.precioUnitario - pactado.precioPactado) * p.cantidad),
+          ajustePropuesto: round2((pactado.precioPactado - p.precioUnitario) * p.cantidad),
           detalle: {
             cobrado: p.precioUnitario,
             pactado: pactado.precioPactado,
@@ -111,10 +155,14 @@ export async function auditarReglas(facturaId: string) {
             unidad: p.unidad,
             cantidad: p.cantidad,
           },
+          evidencia: [
+            { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} · ${p.descripcion}` },
+            { fuente: nombreTarifario, localizador: `código ${pactado.codigo} · ${pactado.descripcion}` },
+          ],
         });
       }
     } else {
-      // R4 · Partida no autorizada (código inexistente en el tarifario del taller)
+      // R4 · Partida no autorizada (código inexistente en el convenio)
       const parecido = tarifario.find((t) => t.descripcion.toLowerCase() === p.descripcion.toLowerCase());
       hallazgos.push({
         partidaId: p.id,
@@ -123,7 +171,13 @@ export async function auditarReglas(facturaId: string) {
         severidad: parecido ? "BAJA" : "MEDIA",
         descripcion: `La partida «${p.descripcion}» (código ${p.codigo}) no existe en el tarifario pactado con ${factura.taller.nombre}.`,
         montoDiscrepancia: p.subtotal,
+        ajustePropuesto: null,
         detalle: { codigo: p.codigo, descripcion: p.descripcion, subtotal: p.subtotal, posibleHomologo: parecido?.codigo ?? null },
+        evidencia: [
+          { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} · ${p.descripcion}` },
+          { fuente: nombreTarifario, localizador: parecido ? `homólogo por descripción: código ${parecido.codigo}` : "código no encontrado" },
+        ],
+        evidenciaPendiente: parecido ? null : `Autorización o codificación oficial de «${p.descripcion}» en el convenio`,
       });
     }
 
@@ -138,7 +192,12 @@ export async function auditarReglas(facturaId: string) {
         severidad: "ALTA",
         descripcion: `Cantidad inusual: ${p.cantidad} ${p.unidad} de «${p.descripcion}» supera el umbral razonable (${limite} ${p.unidad}) para un siniestro de ${factura.siniestro.zonaDanio === "MULTIPLE" ? "daño múltiple" : "zona " + factura.siniestro.zonaDanio.toLowerCase()}.`,
         montoDiscrepancia: 0,
+        ajustePropuesto: null,
         detalle: { cantidad: p.cantidad, limite, unidad: p.unidad },
+        evidencia: [
+          { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} · cantidad ${p.cantidad} ${p.unidad}` },
+          { fuente: "Parámetros del motor", localizador: `umbral por categoría: ${limite} ${p.unidad}` },
+        ],
       });
     }
 
@@ -153,33 +212,49 @@ export async function auditarReglas(facturaId: string) {
           severidad: "MEDIA",
           descripcion: `«${p.descripcion}» corresponde a la zona ${zonaPartida.replace("_", " ").toLowerCase()} del vehículo, pero el siniestro ${factura.siniestro.numero} reporta daño en zona ${factura.siniestro.zonaDanio.replace("_", " ").toLowerCase()}.`,
           montoDiscrepancia: 0,
+          ajustePropuesto: null,
           detalle: { zonaSiniestro: factura.siniestro.zonaDanio, zonaPartida },
+          evidencia: [
+            { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} · ${p.descripcion}` },
+            { fuente: `Expediente del siniestro ${factura.siniestro.numero}`, localizador: `daño reportado: zona ${factura.siniestro.zonaDanio}` },
+          ],
         });
       }
     }
   }
 
-  // R2 · Partidas duplicadas dentro de la misma factura
+  // R2 · Partidas duplicadas dentro de la misma factura.
+  // Repetición legítima: mismos códigos con contextos documentados
+  // distintos (p.ej. misma pieza en posiciones distintas). Solo se
+  // marca duplicado cuando no hay contexto distinto que lo justifique.
   const porCodigo = new Map<string, typeof factura.partidas>();
   for (const p of factura.partidas) {
-    const clave = p.codigo;
-    const arr = porCodigo.get(clave) ?? [];
+    const arr = porCodigo.get(p.codigo) ?? [];
     arr.push(p);
-    porCodigo.set(clave, arr);
+    porCodigo.set(p.codigo, arr);
   }
-  for (const [, arr] of porCodigo) {
-    if (arr.length > 1) {
-      for (const duplicada of arr.slice(1)) {
-        hallazgos.push({
-          partidaId: duplicada.id,
-          regla: "R2",
-          tipo: ETIQUETA_REGLA.R2,
-          severidad: "ALTA",
-          descripcion: `Cobro duplicado: «${duplicada.descripcion}» aparece ${arr.length} veces en la factura (líneas ${arr.map((a) => a.linea).join(", ")}). Se marca la repetición como sospechosa.`,
-          montoDiscrepancia: round2(duplicada.subtotal),
-          detalle: { codigo: duplicada.codigo, repeticiones: arr.length, lineas: arr.map((a) => a.linea) },
-        });
-      }
+  for (const [codigo, arr] of porCodigo) {
+    if (arr.length < 2) continue;
+    const contextos = arr.map((a) => (a.contexto ?? "").trim());
+    const contextosDistintos = contextos.every((c) => c.length > 0) && new Set(contextos.map((c) => c.toLowerCase())).size === arr.length;
+    if (contextosDistintos) continue; // repetición legítima documentada
+    for (const duplicada of arr.slice(1)) {
+      hallazgos.push({
+        partidaId: duplicada.id,
+        regla: "R2",
+        tipo: ETIQUETA_REGLA.R2,
+        severidad: "ALTA",
+        descripcion: `Cobro posiblemente duplicado: «${duplicada.descripcion}» aparece ${arr.length} veces en la factura (líneas ${arr.map((a) => a.linea).join(", ")}) sin posiciones ni instancias documentadas que justifiquen la repetición.`,
+        montoDiscrepancia: round2(duplicada.subtotal),
+        ajustePropuesto: -round2(duplicada.subtotal),
+        detalle: { codigo, repeticiones: arr.length, lineas: arr.map((a) => a.linea), contextos: contextos },
+        evidencia: [
+          { fuente: `Factura ${factura.numero}`, localizador: `líneas ${arr.map((a) => a.linea).join(", ")} · cód. ${codigo}` },
+        ],
+        evidenciaPendiente: contextos.some((c) => !c)
+          ? `Posición o instancia documentada de cada aparición del código ${codigo} (p.ej. orden de reparación)`
+          : null,
+      });
     }
   }
 
@@ -196,7 +271,12 @@ export async function auditarReglas(facturaId: string) {
         severidad: "CRITICA",
         descripcion: `El contenido económico de esta factura es idéntico al de la factura ${gemela.numero} (siniestro ${gemela.siniestro.numero}) del mismo taller. Posible doble cobro.`,
         montoDiscrepancia: round2(factura.montoTotal),
-        detalle: { facturaGemela: gemela.numero, siniestroGemelo: gemela.siniestro.numero },
+        ajustePropuesto: null,
+        detalle: { facturaGemela: gemela.numero, siniestroGemelo: gemela.siniestro.numero, huella: factura.huella },
+        evidencia: [
+          { fuente: `Factura ${factura.numero}`, localizador: `huella SHA-256 ${factura.huella.slice(0, 10)}…` },
+          { fuente: `Factura ${gemela.numero}`, localizador: `huella idéntica · siniestro ${gemela.siniestro.numero}` },
+        ],
       });
     }
   }
@@ -210,7 +290,12 @@ export async function auditarReglas(facturaId: string) {
       severidad: "MEDIA",
       descripcion: `El total declarado ($${round2(factura.montoTotal)}) no coincide con la suma de partidas más ITBMS ${factura.itbmsPct}% (esperado $${esperado}). Diferencia: $${round2(Math.abs(esperado - factura.montoTotal))}.`,
       montoDiscrepancia: round2(Math.abs(esperado - factura.montoTotal)),
+      ajustePropuesto: null,
       detalle: { declarado: factura.montoTotal, esperado, itbmsPct: factura.itbmsPct },
+      evidencia: [
+        { fuente: `Factura ${factura.numero}`, localizador: "total declarado" },
+        { fuente: `Factura ${factura.numero}`, localizador: `suma aritmética de ${factura.partidas.length} líneas + ITBMS ${factura.itbmsPct}%` },
+      ],
     });
   }
 
@@ -223,7 +308,12 @@ export async function auditarReglas(facturaId: string) {
       severidad: exceso > 150 ? "ALTA" : "MEDIA",
       descripcion: `Honorarios por $${round2(subtotalHonorarios)} equivalen al ${round2((subtotalHonorarios / subtotalRepuestosInsumos) * 100)}% del subtotal técnico, por encima del tope pactado (${topeHonorarios}%). Exceso: $${exceso}.`,
       montoDiscrepancia: exceso,
+      ajustePropuesto: -exceso,
       detalle: { honorarios: round2(subtotalHonorarios), baseTecnica: round2(subtotalRepuestosInsumos), topePct: topeHonorarios, exceso },
+      evidencia: [
+        { fuente: `Factura ${factura.numero}`, localizador: `líneas de honorarios · subtotal $${round2(subtotalHonorarios)}` },
+        { fuente: "Parámetros del motor", localizador: `tope de honorarios pactado: ${topeHonorarios}%` },
+      ],
     });
   }
 
@@ -236,31 +326,41 @@ export async function auditarReglas(facturaId: string) {
       severidad: excesoPct > 40 ? "ALTA" : "MEDIA",
       descripcion: `El monto facturado ($${round2(factura.montoTotal)}) excede la reserva del siniestro ($${round2(factura.siniestro.montoReserva)}) en un ${round2(excesoPct)}%.`,
       montoDiscrepancia: round2(factura.montoTotal - factura.siniestro.montoReserva),
+      ajustePropuesto: null,
       detalle: { reserva: factura.siniestro.montoReserva, facturado: factura.montoTotal, excesoPct: round2(excesoPct) },
+      evidencia: [
+        { fuente: `Factura ${factura.numero}`, localizador: "total facturado" },
+        { fuente: `Expediente del siniestro ${factura.siniestro.numero}`, localizador: `reserva autorizada $${round2(factura.siniestro.montoReserva)}` },
+      ],
     });
   }
 
-  // Score de riesgo (0-100) y monto de discrepancia consolidado
+  // Score de riesgo (0-100) y montos consolidados
   const riesgo = Math.min(
     100,
     hallazgos.reduce((acc, h) => acc + PESO_SEVERIDAD[h.severidad], 0)
   );
   const montoDiscrepancia = round2(hallazgos.reduce((acc, h) => acc + h.montoDiscrepancia, 0));
 
-  // Decisión del agente (Jidoka: detener la línea solo cuando hace falta)
-  const tieneCritico = hallazgos.some((h) => h.severidad === "CRITICA");
-  let estadoSugerido: "APROBADA" | "OBSERVADA" | "RECHAZADA";
-  let montoSugerido: number | null = null;
-  if (riesgo === 0) {
-    estadoSugerido = "APROBADA";
-  } else if (tieneCritico) {
-    estadoSugerido = "RECHAZADA";
-  } else if (riesgo >= 30) {
-    estadoSugerido = "OBSERVADA";
-  } else {
-    estadoSugerido = "OBSERVADA";
-    if (montoDiscrepancia <= umbralAutoajuste) montoSugerido = round2(Math.max(0, factura.montoTotal - montoDiscrepancia));
+  // Monto sin evaluar (regla de parada): bajo parada global, todo el
+  // contenido de la factura queda no evaluable contra convenio.
+  let sinEvaluar = false;
+  let notaBloqueo: string | null = null;
+  let montoSinEvaluar: number | null = null;
+  if (paradaGlobal) {
+    sinEvaluar = true;
+    notaBloqueo = `No existe tarifario pactado cargado para ${factura.taller.nombre}: los montos de esta factura NO pueden evaluarse. El informe solo incluye verificaciones internas (duplicados y aritmética).`;
+    montoSinEvaluar = round2(factura.montoTotal);
   }
 
-  return { hallazgos, riesgo, montoDiscrepancia, estadoSugerido, montoSugerido, config: { tolerancia, topeHonorarios, umbralAutoajuste } };
+  return {
+    hallazgos,
+    riesgo,
+    montoDiscrepancia,
+    sinEvaluar,
+    notaBloqueo,
+    montoSinEvaluar,
+    fuentesLeidas: { tarifario: tarifario.length, partidas: factura.partidas.length, siniestro: factura.siniestro.numero },
+    config: { tolerancia, topeHonorarios, umbralAutoajuste },
+  };
 }

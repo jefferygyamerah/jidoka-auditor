@@ -8,16 +8,15 @@ import type { FacturaListaDTO, TallerDTO } from "@/lib/types";
 import { EstadoBadge, RiesgoBar, SeveridadBadge, SkeletonCard, Vacio } from "@/components/auditor/ui-bits";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, Car } from "lucide-react";
+import { Search, FileText, Car, OctagonX } from "lucide-react";
 
-const COLUMNAS = ["RECIBIDA", "EN_AUDITORIA", "OBSERVADA", "APROBADA", "RECHAZADA"] as const;
+const COLUMNAS = ["RECIBIDA", "EN_AUDITORIA", "PARA_REVISION", "CERRADA"] as const;
 
 const COLUMNA_ESTILO: Record<string, { punto: string; sub: string }> = {
   RECIBIDA: { punto: "bg-slate-300", sub: "Entra al pipeline" },
   EN_AUDITORIA: { punto: "bg-amber-300", sub: "Agente trabajando" },
-  OBSERVADA: { punto: "bg-amber-500", sub: "Requiere humano" },
-  APROBADA: { punto: "bg-emerald-500", sub: "Flujo directo o ajustada" },
-  RECHAZADA: { punto: "bg-red-500", sub: "Línea detenida" },
+  PARA_REVISION: { punto: "bg-amber-500", sub: "Espera decisión del auditor" },
+  CERRADA: { punto: "bg-emerald-500", sub: "Informe cerrado — sin pagos decididos aquí" },
 };
 
 export function Cola() {
@@ -122,11 +121,11 @@ export function Cola() {
 
 function TarjetaFactura({ factura, onClick }: { factura: FacturaListaDTO; onClick: () => void }) {
   const borde =
-    factura.estadoAuditoria === "RECHAZADA"
+    factura.sinEvaluar
       ? "border-l-red-500"
-      : factura.estadoAuditoria === "OBSERVADA"
+      : factura.hallazgosPendientes > 0
         ? "border-l-amber-400"
-        : factura.estadoAuditoria === "APROBADA"
+        : factura.estadoAuditoria === "CERRADA"
           ? "border-l-emerald-500"
           : "border-l-slate-300";
 
@@ -148,10 +147,16 @@ function TarjetaFactura({ factura, onClick }: { factura: FacturaListaDTO; onClic
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="nums text-[11px] text-muted-foreground">{factura.siniestro.numero} · {fechaCorta(factura.fechaIngreso)}</p>
-        {factura.hallazgosCount > 0 ? (
+        {factura.sinEvaluar ? (
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600">
+            <OctagonX className="h-3 w-3" /> Sin evaluar
+          </span>
+        ) : factura.hallazgosCount > 0 ? (
           <div className="flex items-center gap-1.5">
             {factura.severidadMaxima && <SeveridadBadge severidad={factura.severidadMaxima} />}
-            <span className="nums text-[11px] font-semibold text-amber-700">{factura.hallazgosCount}</span>
+            <span className="nums text-[11px] font-semibold text-amber-700">
+              {factura.hallazgosPendientes > 0 ? `${factura.hallazgosPendientes} pend.` : "revisados"}
+            </span>
           </div>
         ) : (
           <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
@@ -160,9 +165,9 @@ function TarjetaFactura({ factura, onClick }: { factura: FacturaListaDTO; onClic
         )}
       </div>
       {factura.hallazgosCount > 0 && <RiesgoBar riesgo={factura.riesgo} className="mt-2" />}
-      {factura.estadoAuditoria === "APROBADA" && factura.montoSugerido != null && factura.montoSugerido < factura.montoTotal && (
-        <p className="nums mt-2 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
-          Aprobada por {usd(factura.montoSugerido)} (ajuste de {usd(factura.montoTotal - factura.montoSugerido)})
+      {factura.montoAjusteProp != null && factura.montoAjusteProp !== 0 && (
+        <p className="nums mt-2 rounded-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-600">
+          Ajuste propuesto por el motor (referencia): {usd(factura.montoAjusteProp)}
         </p>
       )}
     </button>

@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ETIQUETA_REGLA_LABELS } from "@/lib/labels";
+import { ACCION_LABEL } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/facturas/[id]/revision — decisión humana sobre una factura observada
+// POST /api/facturas/[id]/revision
+// Revisión POR HALLAZGO (contrato #44): el auditor humano puede
+// · ACEPTAR_HALLAZGO     — valida la discrepancia señalada
+// · DESCARTAR_HALLAZGO   — la rechaza; motivo obligatorio
+// · PEDIR_EVIDENCIA      — solicita el documento/dato exacto; motivo obligatorio
+// · REAUDITAR            — vuelve a correr el pipeline (p.ej. tras cargar evidencia)
+// El agente NUNCA aprueba ni rechaza pagos; aquí tampoco se liquida nada.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = (await req.json().catch(() => null)) as {
     auditor?: string;
     rol?: string;
-    accion?: "APROBAR" | "RECHAZAR" | "ESCALAR" | "OBSERVAR";
+    accion?: "ACEPTAR_HALLAZGO" | "DESCARTAR_HALLAZGO" | "PEDIR_EVIDENCIA" | "REAUDITAR";
     comentario?: string;
-    montoAprobado?: number;
+    hallazgoId?: string;
   } | null;
 
   if (!body?.accion || !body.auditor) {
@@ -22,33 +28,59 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const factura = await db.factura.findUnique({ where: { id }, include: { hallazgos: true } });
   if (!factura) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 });
 
-  if (factura.estadoAuditoria === "APROBADA" && body.accion !== "RECHAZAR") {
-    return NextResponse.json({ error: "La factura ya está aprobada." }, { status: 409 });
+  // REAUDITAR no exige hallazgoId
+  if (body.accion === "REAUDITAR") {
+    const { ejecutarAuditoria } = await import("@/lib/audit-agent");
+    const resultado = await ejecutarAuditoria(id);
+    await db.revision.create({
+      data: {
+        facturaId: id,
+        auditor: body.auditor,
+        rol: body.rol ?? "AUDITOR",
+        accion: "REAUDITAR",
+        comentario: body.comentario?.trim() || "Re-auditoría ejecutada por el auditor.",
+      },
+    });
+    return NextResponse.json({ ok: true, reauditado: true, ...resultado });
   }
 
-  const montoAprobado =
-    body.accion === "APROBAR"
-      ? body.montoAprobado != null
-        ? Math.max(0, Math.round(body.montoAprobado * 100) / 100)
-        : factura.montoSugerido ?? factura.montoTotal
-      : null;
+  const comentario = body.comentario?.trim() ?? "";
+  const exigeMotivo = body.accion === "DESCARTAR_HALLAZGO" || body.accion === "PEDIR_EVIDENCIA";
+  if (!body.hallazgoId) {
+    return NextResponse.json({ error: "Se requiere hallazgoId: la revisión es por hallazgo, no por factura." }, { status: 400 });
+  }
+  if (exigeMotivo && !comentario) {
+    return NextResponse.json(
+      { error: body.accion === "DESCARTAR_HALLAZGO" ? "Motivo obligatorio para descartar un hallazgo." : "Indica qué evidencia se solicita." },
+      { status: 400 }
+    );
+  }
+
+  const hallazgo = factura.hallazgos.find((h) => h.id === body.hallazgoId);
+  if (!hallazgo) return NextResponse.json({ error: "Hallazgo no encontrado en esta factura." }, { status: 404 });
+
+  const nuevoEstado =
+    body.accion === "ACEPTAR_HALLAZGO" ? "ACEPTADO" : body.accion === "DESCARTAR_HALLAZGO" ? "DESCARTADO" : "EVIDENCIA_SOLICITADA";
 
   const [revision] = await db.$transaction([
     db.revision.create({
       data: {
         facturaId: id,
+        hallazgoId: body.hallazgoId,
         auditor: body.auditor,
         rol: body.rol ?? "AUDITOR",
         accion: body.accion,
-        comentario: body.comentario?.trim() || "Sin comentario.",
-        montoAprobado,
+        comentario: comentario || "Hallazgo aceptado por el auditor.",
       },
     }),
-    db.factura.update({
-      where: { id },
+    db.hallazgo.update({
+      where: { id: body.hallazgoId },
       data: {
-        estadoAuditoria: body.accion === "APROBAR" ? "APROBADA" : body.accion === "RECHAZAR" ? "RECHAZADA" : "OBSERVADA",
-        montoSugerido: body.accion === "APROBAR" ? montoAprobado : null,
+        estadoRevision: nuevoEstado,
+        comentarioRevision: comentario || null,
+        revisadoPor: body.auditor,
+        revisadoEn: new Date(),
+        ...(body.accion === "PEDIR_EVIDENCIA" ? { evidenciaPendiente: comentario } : {}),
       },
     }),
     db.logAgente.create({
@@ -56,20 +88,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         facturaId: id,
         paso: 90,
         etapa: "HUMANO",
-        mensaje: `Decisión humana (${body.auditor}, ${body.rol ?? "AUDITOR"}): ${ETIQUETA_REGLA_LABELS[body.accion] ?? body.accion}. ${body.comentario?.trim() || ""}`.trim(),
+        mensaje: `Revisión del auditor (${body.auditor}, ${body.rol ?? "AUDITOR"}): ${ACCION_LABEL[body.accion] ?? body.accion} — hallazgo [${hallazgo.regla}] ${hallazgo.tipo}. ${comentario}`.trim(),
       },
     }),
   ]);
 
-  // Si la factura se aprueba, el siniestro pasa a liquidado
-  if (body.accion === "APROBAR") {
-    const pendientes = await db.factura.count({
-      where: { siniestroId: factura.siniestroId, id: { not: id }, estadoAuditoria: { in: ["RECIBIDA", "EN_AUDITORIA", "OBSERVADA"] } },
+  // Cierre de flujo: cuando NO quedan hallazgos pendientes, el informe queda CERRADA
+  // (cierra el ciclo de auditoría; no implica pago aprobado ni rechazado).
+  const pendientes = await db.hallazgo.count({ where: { facturaId: id, estadoRevision: "PENDIENTE" } });
+  if (pendientes === 0 && factura.estadoAuditoria === "PARA_REVISION") {
+    await db.factura.update({ where: { id }, data: { estadoAuditoria: "CERRADA" } });
+    await db.logAgente.create({
+      data: {
+        facturaId: id,
+        paso: 91,
+        etapa: "HUMANO",
+        mensaje: "Todos los hallazgos revisados: informe cerrado. Las decisiones de pago siguen el proceso del asegurador.",
+      },
     });
-    if (pendientes === 0) {
-      await db.siniestro.update({ where: { id: factura.siniestroId }, data: { estado: "LIQUIDADO" } });
-    }
   }
 
-  return NextResponse.json({ ok: true, revisionId: revision.id, montoAprobado });
+  return NextResponse.json({ ok: true, revisionId: revision.id, estadoHallazgo: nuevoEstado, informeCerrado: pendientes === 0 });
 }

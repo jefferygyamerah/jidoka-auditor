@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────
 // Seed · JIDOKA — datos de demostración realistas (Panamá, USD)
-// Ejecutar: JIDOKA_DISABLE_IA=1 bun scripts/seed.ts
+// Ejecutar: JIDOKA_DISABLE_IA=1 npx tsx scripts/seed.ts
 // ─────────────────────────────────────────────────────────────
 import { PrismaClient } from "@prisma/client";
+import { generarInformeAgente } from "../src/lib/audit-agent";
 
 const db = new PrismaClient({ log: [] });
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -69,6 +70,7 @@ const TALLERES = [
   { nombre: "Serviautos San Isidro, S.A.", ruc: "8556-114-501", ciudad: "Colón", telefono: "441-6633", contacto: "Ana Lucía Petit", descuentoPct: 6 },
   { nombre: "Chapa y Pintura Amador", ruc: "12556-778-617", ciudad: "Arraiján", telefono: "250-9904", contacto: "Óscar Amador Jr.", descuentoPct: 10 },
   { nombre: "Multiservicios Automotriz Chepo", ruc: "4556-590-822", ciudad: "Chepo", telefono: "218-4471", contacto: "Domingo Ríos", descuentoPct: 3 },
+  { nombre: "Taller La Junction (sin convenio cargado)", ruc: "7556-401-933", ciudad: "San Miguelito", telefono: "267-1180", contacto: "Héctor Barrios", descuentoPct: 0 },
 ];
 
 // Varianza determinista de precios pactados por taller (±6%)
@@ -104,6 +106,7 @@ interface EspPartida {
   cantidad: number;
   precio?: number; // override del precio cobrado (planteo)
   desc?: string; // override de descripción
+  contexto?: string; // posición/instancia documentada — repeticiones legítimas
 }
 interface EspFactura {
   numero: string;
@@ -112,44 +115,48 @@ interface EspFactura {
   diasAtras: number;
   partidas: EspPartida[];
   deltaTotal?: number; // diferencia planteada entre total y suma de partidas
-  revision?: { auditor: string; rol: string; accion: "APROBAR" | "RECHAZAR" | "ESCALAR"; comentario: string; montoAprobado?: number };
+  revision?: { auditor: string; rol: string; accion: "ACEPTAR_HALLAZGO" | "DESCARTAR_HALLAZGO" | "PEDIR_EVIDENCIA"; hallazgoIdx: number; comentario: string };
 }
 
-const P = (codigo: string, cantidad = 1, precio?: number, desc?: string): EspPartida => ({ codigo, cantidad, precio, desc });
+const P = (codigo: string, cantidad = 1, precio?: number, desc?: string, contexto?: string): EspPartida => ({ codigo, cantidad, precio, desc, contexto });
 
 const FACTURAS: EspFactura[] = [
   { numero: "FAC-2026-0101", tallerIdx: 0, siniestroIdx: 0, diasAtras: 112, partidas: [P("R-1001"), P("R-1003"), P("R-1004"), P("R-1018"), P("M-3001", 3), P("M-3002", 4), P("I-2001", 2.5), P("I-2003", 2), P("I-2004", 6), P("I-2005", 1), P("H-4001")] },
   { numero: "FAC-2026-0102", tallerIdx: 2, siniestroIdx: 2, diasAtras: 101, partidas: [P("R-1009"), P("R-1013"), P("M-3002", 3), P("M-3003", 2), P("I-2001", 1.8), P("I-2004", 5), P("I-2005", 1), P("H-4001")] },
   { numero: "FAC-2026-0103", tallerIdx: 1, siniestroIdx: 1, diasAtras: 98, partidas: [P("R-1002"), P("R-1019"), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2), P("I-2003", 1.5), P("I-2004", 4), P("H-4001")] },
   { numero: "FAC-2026-0104", tallerIdx: 3, siniestroIdx: 3, diasAtras: 94, partidas: [P("R-1001"), P("R-1006"), P("R-1017"), P("M-3001", 4), P("M-3007", 6), P("I-2007", 1), P("I-2008", 2), P("H-4001"), P("H-4003")] },
-  { numero: "FAC-2026-0105", tallerIdx: 1, siniestroIdx: 4, diasAtras: 90, partidas: [P("R-1005", 1, 231), P("R-1008"), P("M-3002", 5), P("M-3003", 3), P("I-2001", 3), P("I-2002", 1), P("I-2004", 7), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "APROBAR", comentario: "Verificado con perito: el desvío del faro corresponde a refacción original con sobreprecio justificado por escasez. Se aprueba con ajuste al tarifario pactado." } },
+  { numero: "FAC-2026-0105", tallerIdx: 1, siniestroIdx: 4, diasAtras: 90, partidas: [P("R-1005", 1, 231), P("R-1008"), P("M-3002", 5), P("M-3003", 3), P("I-2001", 3), P("I-2002", 1), P("I-2004", 7), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Verificado con perito: el desvío del faro corresponde a refacción original con sobreprecio justificado por escasez. Hallazgo aceptado; el ajuste pasa al proceso del asegurador." } },
   { numero: "FAC-2026-0106", tallerIdx: 4, siniestroIdx: 5, diasAtras: 86, partidas: [P("R-1002"), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2.2), P("I-2003", 2), P("I-2004", 5), P("H-4001")] },
   { numero: "FAC-2026-0107", tallerIdx: 5, siniestroIdx: 6, diasAtras: 83, partidas: [P("R-1010"), P("R-1014"), P("R-1021"), P("M-3002", 4), P("M-3003", 3), P("I-2001", 2.5), P("I-2004", 6), P("H-4001")] },
-  { numero: "FAC-2026-0108", tallerIdx: 0, siniestroIdx: 7, diasAtras: 79, partidas: [P("R-1015"), P("R-1015"), P("M-3006", 1), P("I-2005", 2), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "APROBAR", comentario: "Duplicado de parabrisas confirmado como error de digitación del taller; nota de crédito emitida. Se aprueba el monto corregido." } },
+  { numero: "FAC-2026-0108", tallerIdx: 0, siniestroIdx: 7, diasAtras: 79, partidas: [P("R-1015"), P("R-1015"), P("M-3006", 1), P("I-2005", 2), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Duplicado de parabrisas confirmado como error de digitación del taller; nota de crédito emitida por el taller. Hallazgo aceptado." } },
   { numero: "FAC-2026-0109", tallerIdx: 2, siniestroIdx: 8, diasAtras: 75, partidas: [P("R-1001"), P("R-1018"), P("R-1004"), P("M-3001", 4), P("M-3002", 5), P("M-3007", 3), P("I-2001", 3.5), P("I-2003", 2.5), P("I-2004", 8), P("H-4001"), P("H-4003")] },
   { numero: "FAC-2026-0110", tallerIdx: 3, siniestroIdx: 9, diasAtras: 71, partidas: [P("R-1011"), P("R-1020"), P("M-3003", 3), P("M-3002", 3), P("I-2001", 2), P("I-2004", 5), P("H-4001")] },
-  { numero: "FAC-2026-0111", tallerIdx: 2, siniestroIdx: 2, diasAtras: 69, partidas: [P("R-1009"), P("R-1013"), P("M-3002", 3), P("M-3003", 2), P("I-2001", 1.8), P("I-2004", 5), P("I-2005", 1), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "RECHAZAR", comentario: "Confirmado por control interno: la factura duplica el contenido de la FAC-2026-0102 para el mismo siniestro. Se rechaza y se inicia proceso de recuperación de doble pago." } },
+  { numero: "FAC-2026-0111", tallerIdx: 2, siniestroIdx: 2, diasAtras: 69, partidas: [P("R-1009"), P("R-1013"), P("M-3002", 3), P("M-3003", 2), P("I-2001", 1.8), P("I-2004", 5), P("I-2005", 1), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Confirmado por control interno: la factura duplica el contenido de la FAC-2026-0102 para el mismo siniestro. Hallazgo crítico aceptado; recuperación del doble pago en proceso del asegurador." } },
   { numero: "FAC-2026-0112", tallerIdx: 1, siniestroIdx: 10, diasAtras: 66, partidas: [P("R-1002"), P("R-1019"), P("R-1016"), P("M-3001", 4), P("M-3002", 4), P("I-2001", 3), P("I-2003", 2), P("I-2004", 6), P("H-4001")] },
   { numero: "FAC-2026-0113", tallerIdx: 4, siniestroIdx: 11, diasAtras: 62, partidas: [P("R-1010"), P("R-1012"), P("M-3003", 4), P("M-3002", 4), P("I-2001", 2.6), P("I-2004", 6), P("I-2005", 1), P("H-4001")] },
-  { numero: "FAC-2026-0114", tallerIdx: 5, siniestroIdx: 12, diasAtras: 58, partidas: [P("R-9999", 1, 420, "Kit de luces LED deportivas"), P("M-3005", 2), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "RECHAZAR", comentario: "Accesorio no cubierto por la póliza y no relacionado con el daño reportado. Se rechaza la partida y se notifica al taller." } },
+  { numero: "FAC-2026-0114", tallerIdx: 5, siniestroIdx: 12, diasAtras: 58, partidas: [P("R-9999", 1, 420, "Kit de luces LED deportivas"), P("M-3005", 2), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Accesorio no pactado y sin relación con el daño reportado. Hallazgo aceptado; la partida sale del proceso del asegurador." } },
   { numero: "FAC-2026-0115", tallerIdx: 0, siniestroIdx: 13, diasAtras: 54, partidas: [P("R-1001"), P("R-1005"), P("M-3001", 3), P("M-3002", 4), P("I-2001", 2.5), P("I-2003", 2), P("I-2004", 6), P("H-4001")] },
   { numero: "FAC-2026-0116", tallerIdx: 4, siniestroIdx: 14, diasAtras: 50, partidas: [P("R-1002"), P("M-3001", 3), P("M-3002", 4), P("I-2001", 18), P("I-2003", 3), P("I-2004", 8), P("H-4001")] },
   { numero: "FAC-2026-0117", tallerIdx: 3, siniestroIdx: 15, diasAtras: 47, partidas: [P("R-1009"), P("R-1013"), P("M-3002", 4), P("I-2001", 2.2), P("I-2004", 6), P("H-4001")], deltaTotal: 340 },
   { numero: "FAC-2026-0118", tallerIdx: 1, siniestroIdx: 0, diasAtras: 44, partidas: [P("M-3002", 2), P("I-2001", 1.2), P("I-2004", 4), P("H-4001")] },
-  { numero: "FAC-2026-0119", tallerIdx: 4, siniestroIdx: 1, diasAtras: 41, partidas: [P("R-1001", 1, 380), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2), P("I-2004", 5), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "APROBAR", comentario: "El perito confirma daño colateral frontal durante maniobras en el taller. Partida justificada; se aprueba al precio de tarifario con ajuste." } },
+  { numero: "FAC-2026-0119", tallerIdx: 4, siniestroIdx: 1, diasAtras: 41, partidas: [P("R-1001", 1, 380), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2), P("I-2004", 5), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "El perito confirma daño colateral frontal durante maniobras en el taller. Hallazgo aceptado con la justificación documentada; referido al proceso del asegurador." } },
   { numero: "FAC-2026-0120", tallerIdx: 2, siniestroIdx: 4, diasAtras: 37, partidas: [P("R-1008"), P("R-1021"), P("M-3003", 4), P("M-3002", 4), P("I-2001", 3), P("I-2004", 7), P("H-4001"), P("H-4003")] },
   { numero: "FAC-2026-0121", tallerIdx: 5, siniestroIdx: 7, diasAtras: 33, partidas: [P("R-1015"), P("M-3006", 1), P("I-2005", 1), P("H-4001", 2), P("H-4002", 3)] },
   { numero: "FAC-2026-0122", tallerIdx: 3, siniestroIdx: 11, diasAtras: 29, partidas: [P("R-1012"), P("M-3003", 2), P("M-3002", 2), P("I-2001", 1.5), P("I-2004", 4), P("H-4001")] },
-  { numero: "FAC-2026-0123", tallerIdx: 4, siniestroIdx: 13, diasAtras: 26, partidas: [P("R-1001"), P("R-1001", 1, 355), P("R-1005"), P("M-3001", 4), P("M-3002", 5), P("I-2001", 3), P("I-2004", 8), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ESCALAR", comentario: "Combinación de sobreprecio y cobro repetido del mismo parachoques. Se escala a supervisor para evaluar sanción al taller y recuperación del monto." } },
+  { numero: "FAC-2026-0123", tallerIdx: 4, siniestroIdx: 13, diasAtras: 26, partidas: [P("R-1001"), P("R-1001", 1, 355), P("R-1005"), P("M-3001", 4), P("M-3002", 5), P("I-2001", 3), P("I-2004", 8), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Combinación de sobreprecio y cobro repetido del mismo parachoques. Ambos hallazgos aceptados; se escala al supervisor dentro del proceso del asegurador." } },
   { numero: "FAC-2026-0124", tallerIdx: 0, siniestroIdx: 10, diasAtras: 23, partidas: [P("R-1002"), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2), P("I-2003", 2), P("I-2004", 5), P("H-4001")] },
   { numero: "FAC-2026-0125", tallerIdx: 4, siniestroIdx: 3, diasAtras: 20, partidas: [P("R-1001"), P("R-1006"), P("R-1017"), P("M-3001", 5), P("M-3002", 6), P("M-3007", 8), P("I-2001", 4), P("I-2007", 2), P("I-2004", 10), P("H-4001"), P("H-4003")] },
   { numero: "FAC-2026-0126", tallerIdx: 5, siniestroIdx: 4, diasAtras: 18, partidas: [P("R-1007"), P("R-1020"), P("M-3003", 3), P("M-3002", 3), P("I-2001", 2), P("I-2004", 5), P("H-4001")] },
-  { numero: "FAC-2026-0127", tallerIdx: 4, siniestroIdx: 11, diasAtras: 16, partidas: [P("R-1010"), P("R-1012"), P("M-3003", 4), P("M-3002", 4), P("I-2001", 2.6), P("I-2004", 6), P("I-2005", 1), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "RECHAZAR", comentario: "Segunda factura con contenido idéntico a la FAC-2026-0113 del mismo taller y siniestro. Rechazada por doble cobro; se remite a legales." } },
-  { numero: "FAC-2026-0128", tallerIdx: 1, siniestroIdx: 3, diasAtras: 14, partidas: [P("R-1001", 3), P("M-3001", 4), P("I-2001", 3), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "APROBAR", comentario: "Taller acredita devolución de 2 parachoques al proveedor; se aprueba solo la unidad instalada con ajuste de cantidad." } },
+  { numero: "FAC-2026-0127", tallerIdx: 4, siniestroIdx: 11, diasAtras: 16, partidas: [P("R-1010"), P("R-1012"), P("M-3003", 4), P("M-3002", 4), P("I-2001", 2.6), P("I-2004", 6), P("I-2005", 1), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Segunda factura con contenido idéntico a la FAC-2026-0113 del mismo taller y siniestro. Doble cobro confirmado; remitido a legales dentro del proceso del asegurador." } },
+  { numero: "FAC-2026-0128", tallerIdx: 1, siniestroIdx: 3, diasAtras: 14, partidas: [P("R-1001", 4), P("M-3001", 4), P("I-2001", 3), P("H-4001")], revision: { auditor: "Marisol Ortega", rol: "AUDITOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Taller acredita devolución de 3 parachoques al proveedor. Hallazgo de cantidad aceptado; solo la unidad instalada sigue en el proceso." } },
   { numero: "FAC-2026-0129", tallerIdx: 2, siniestroIdx: 14, diasAtras: 11, partidas: [P("R-1002"), P("M-3001", 3), P("M-3002", 3), P("I-2001", 2), P("I-2003", 2), P("I-2004", 5), P("H-4001")] },
   { numero: "FAC-2026-0130", tallerIdx: 4, siniestroIdx: 15, diasAtras: 8, partidas: [P("R-1009", 1, 469), P("R-1013"), P("M-3002", 4), P("I-2001", 2.2), P("I-2004", 6), P("H-4001")] },
-  { numero: "FAC-2026-0131", tallerIdx: 5, siniestroIdx: 5, diasAtras: 5, partidas: [P("R-7777", 1, 310, "Alerón deportivo con iluminación"), P("M-3002", 2), P("I-2001", 1.5), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "RECHAZAR", comentario: "Alerón deportivo: partida no pactada en el convenio y sin relación con el alcance trasero. Rechazo total de la partida y llamado de atención formal." } },
+  { numero: "FAC-2026-0131", tallerIdx: 5, siniestroIdx: 5, diasAtras: 5, partidas: [P("R-7777", 1, 310, "Alerón deportivo con iluminación"), P("M-3002", 2), P("I-2001", 1.5), P("H-4001")], revision: { auditor: "Jorge De Sedas", rol: "SUPERVISOR", accion: "ACEPTAR_HALLAZGO", hallazgoIdx: 0, comentario: "Alerón deportivo: partida no pactada y sin relación con el alcance trasero. Hallazgo aceptado; llamado de atención formal al taller." } },
   { numero: "FAC-2026-0132", tallerIdx: 0, siniestroIdx: 6, diasAtras: 2, partidas: [P("I-2003", 2, 14.85), P("M-3003", 3), P("M-3002", 3), P("I-2001", 2), P("I-2004", 5), P("H-4001")], deltaTotal: 118.4 },
+  // Repetición LEGÍTIMA: mismo código con posiciones documentadas distintas — NO se marca como duplicado
+  { numero: "FAC-2026-0133", tallerIdx: 3, siniestroIdx: 12, diasAtras: 21, partidas: [P("R-1012", 1, undefined, undefined, "Puerta trasera derecha (instalación)"), P("R-1012", 1, undefined, undefined, "Puerta trasera izquierda (instalación)"), P("M-3003", 3), P("M-3002", 4), P("I-2001", 2.5), P("I-2004", 6), P("H-4001")] },
+  // Regla de parada: taller SIN tarifario cargado — montos quedan sin evaluar de forma visible
+  { numero: "FAC-2026-0134", tallerIdx: 6, siniestroIdx: 14, diasAtras: 3, partidas: [P("R-1002", 1, 268), P("M-3001", 3, 29), P("I-2001", 2, 39), P("H-4001", 1, 66)] },
 ];
 
 async function main() {
@@ -167,10 +174,12 @@ async function main() {
   await db.configuracion.create({ data: { id: "GLOBAL", topeHonorariosPct: 20 } });
 
   console.log("→ Creando talleres y tarifarios pactados…");
-  const talleres = [];
+  const talleres: Awaited<ReturnType<typeof db.taller.create>>[] = [];
   for (const [i, t] of TALLERES.entries()) {
     const taller = await db.taller.create({ data: t });
     talleres.push(taller);
+    // "Taller La Junction (sin convenio cargado)" no tiene tarifario: provoca la regla de parada (R10)
+    if (t.nombre.startsWith("Taller La Junction")) continue;
     for (const item of CATALOGO) {
       await db.tarifarioItem.create({
         data: {
@@ -187,7 +196,7 @@ async function main() {
   console.log(`  ${talleres.length} talleres · ${talleres.length * CATALOGO.length} partidas de tarifario`);
 
   console.log("→ Creando siniestros…");
-  const siniestros = [];
+  const siniestros: Awaited<ReturnType<typeof db.siniestro.create>>[] = [];
   for (const s of SINIESTROS) {
     const fechaOcurrencia = new Date(HOY.getTime() - s.diasAtras * 24 * 3600 * 1000);
     const siniestro = await db.siniestro.create({
@@ -232,6 +241,7 @@ async function main() {
         unidad: item?.unidad ?? "UND",
         precioUnitario: precio,
         subtotal: sub,
+        contexto: p.contexto ?? null,
       };
     });
 
@@ -253,33 +263,60 @@ async function main() {
     const res = await ejecutarAuditoria(factura.id);
 
     if (esp.revision) {
-      const montoAprobado = esp.revision.accion === "APROBAR" ? round2(Math.max(0, montoTotal - res.montoDiscrepancia)) : undefined;
+      const hallazgosCreados = await db.hallazgo.findMany({
+        where: { facturaId: factura.id, regla: { not: "R10" } },
+        orderBy: { createdAt: "asc" },
+      });
+      const objetivo = hallazgosCreados[esp.revision.hallazgoIdx];
+      const nuevoEstado =
+        esp.revision.accion === "ACEPTAR_HALLAZGO" ? "ACEPTADO" : esp.revision.accion === "DESCARTAR_HALLAZGO" ? "DESCARTADO" : "EVIDENCIA_SOLICITADA";
+      if (objetivo) {
+        await db.hallazgo.update({
+          where: { id: objetivo.id },
+          data: { estadoRevision: nuevoEstado, comentarioRevision: esp.revision.comentario, revisadoPor: esp.revision.auditor, revisadoEn: new Date() },
+        });
+      }
       await db.revision.create({
         data: {
           facturaId: factura.id,
+          hallazgoId: objetivo?.id ?? null,
           auditor: esp.revision.auditor,
           rol: esp.revision.rol,
           accion: esp.revision.accion,
           comentario: esp.revision.comentario,
-          montoAprobado: montoAprobado ?? null,
           fecha: new Date(factura.fechaIngreso.getTime() + 24 * 3600 * 1000),
         },
       });
-      const estadoFinal = esp.revision.accion === "APROBAR" ? "APROBADA" : esp.revision.accion === "RECHAZAR" ? "RECHAZADA" : "OBSERVADA";
-      await db.factura.update({
-        where: { id: factura.id },
-        data: { estadoAuditoria: estadoFinal, montoSugerido: estadoFinal === "APROBADA" ? montoAprobado : null },
-      });
-      if (estadoFinal === "APROBADA") {
-        await db.siniestro.update({ where: { id: siniestro.id }, data: { estado: "LIQUIDADO" } });
-      }
+      const quedan = await db.hallazgo.count({ where: { facturaId: factura.id, estadoRevision: "PENDIENTE" } });
+      await db.factura.update({ where: { id: factura.id }, data: { estadoAuditoria: quedan === 0 ? "CERRADA" : "PARA_REVISION" } });
     }
-    const flag = res.hallazgos > 0 ? `!! ${res.hallazgos} hallazgo(s), riesgo ${res.riesgo}` : "OK limpia";
+    const flag = res.sinEvaluar
+      ? `■ PARADA · sin evaluar $${res.montoSinEvaluar}`
+      : res.hallazgos > 0
+        ? `!! ${res.hallazgos} hallazgo(s), riesgo ${res.riesgo}`
+        : "OK limpia";
     console.log(`  ${esp.numero} · ${flag} · ${res.estado}`);
   }
 
   const conteos = await db.factura.groupBy({ by: ["estadoAuditoria"], _count: true });
   console.log("→ Estados finales:", conteos.map((c) => `${c.estadoAuditoria}: ${c._count}`).join(" · "));
+
+  // Informes del agente en serial (SQLite no lleva bien escritas concurrentes durante el seed)
+  console.log("→ Redactando informes del agente (serial)…");
+  const pendientesInforme = await db.factura.findMany({
+    where: { informeAgente: null, informeEnCurso: false },
+    select: { id: true, numero: true },
+    orderBy: { createdAt: "asc" },
+  });
+  for (const [i, f] of pendientesInforme.entries()) {
+    try {
+      await generarInformeAgente(f.id);
+      if ((i + 1) % 10 === 0) console.log(`  ${i + 1}/${pendientesInforme.length} informes`);
+    } catch (e) {
+      console.warn(`  aviso: informe de ${f.numero} falló (${(e as Error).message?.slice(0, 80)})`);
+      await db.factura.update({ where: { id: f.id }, data: { informeEnCurso: false } });
+    }
+  }
   console.log("Seed completado");
 }
 

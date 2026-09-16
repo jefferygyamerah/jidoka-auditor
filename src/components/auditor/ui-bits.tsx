@@ -4,21 +4,19 @@ import { cn } from "@/lib/utils";
 import { ESTADO_LABEL } from "@/lib/format";
 import { AlertTriangle, CheckCircle2, OctagonX, Clock3, Loader2 } from "lucide-react";
 
-// ── Badges de estado andon ────────────────────────────────────
+// ── Badges de estado del flujo de auditoría (no son estados de pago) ──
 const ESTADO_ESTILO: Record<string, string> = {
   RECIBIDA: "bg-slate-100 text-slate-600 border-slate-200",
   EN_AUDITORIA: "bg-amber-50 text-amber-700 border-amber-200",
-  OBSERVADA: "bg-amber-50 text-amber-700 border-amber-300",
-  APROBADA: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  RECHAZADA: "bg-red-50 text-red-700 border-red-200",
+  PARA_REVISION: "bg-amber-50 text-amber-700 border-amber-300",
+  CERRADA: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 const ESTADO_ICONO: Record<string, React.ReactNode> = {
   RECIBIDA: <Clock3 className="h-3 w-3" />,
   EN_AUDITORIA: <Loader2 className="h-3 w-3 animate-spin" />,
-  OBSERVADA: <AlertTriangle className="h-3 w-3" />,
-  APROBADA: <CheckCircle2 className="h-3 w-3" />,
-  RECHAZADA: <OctagonX className="h-3 w-3" />,
+  PARA_REVISION: <AlertTriangle className="h-3 w-3" />,
+  CERRADA: <CheckCircle2 className="h-3 w-3" />,
 };
 
 export function EstadoBadge({ estado, className }: { estado: string; className?: string }) {

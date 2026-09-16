@@ -11,16 +11,15 @@ export async function GET() {
   const siniestros = await db.siniestro.findMany({
     include: {
       facturas: {
-        select: { montoTotal: true, montoSugerido: true, estadoAuditoria: true },
+        select: { montoTotal: true, estadoAuditoria: true },
       },
     },
     orderBy: { fechaOcurrencia: "desc" },
   });
 
   const lista: SiniestroDTO[] = siniestros.map((s) => {
-    const montoFacturado = round2(
-      s.facturas.reduce((a, f) => a + (f.estadoAuditoria === "RECHAZADA" ? 0 : (f.montoSugerido ?? f.montoTotal)), 0)
-    );
+    // Todas las facturas registradas cuentan (el informe nunca decide pagos)
+    const montoFacturado = round2(s.facturas.reduce((a, f) => a + f.montoTotal, 0));
     return {
       id: s.id,
       numero: s.numero,

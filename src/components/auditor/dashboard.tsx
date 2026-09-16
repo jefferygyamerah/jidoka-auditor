@@ -6,7 +6,7 @@ import { usd, usdK } from "@/lib/format";
 import type { DashboardDTO } from "@/lib/types";
 import { KpiCard, SkeletonCard, TituloSeccion, PuntoAndon } from "@/components/auditor/ui-bits";
 import { Card } from "@/components/ui/card";
-import { Bot, HandCoins, Timer, TrendingDown, AlertTriangle, ShieldCheck, OctagonX } from "lucide-react";
+import { Bot, TrendingDown, AlertTriangle, ShieldCheck, OctagonX, ListChecks } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -66,8 +66,6 @@ export function Dashboard() {
     return acc;
   }, []);
 
-  const jornadas = Math.round((data.horasAhorradas / 8) * 10) / 10;
-
   return (
     <div className="space-y-6">
       {/* Encabezado */}
@@ -83,10 +81,10 @@ export function Dashboard() {
             <PuntoAndon color="verde" /> {data.andon.verde} fluyen
           </span>
           <span className="flex items-center gap-1.5">
-            <PuntoAndon color="amarillo" /> {data.andon.amarillo} detenidas
+            <PuntoAndon color="amarillo" /> {data.andon.amarillo} esperan revisión
           </span>
           <span className="flex items-center gap-1.5">
-            <PuntoAndon color="rojo" /> {data.andon.rojo} rechazadas
+            <PuntoAndon color="rojo" /> {data.andon.rojo} detenidas
           </span>
         </div>
       </div>
@@ -94,30 +92,30 @@ export function Dashboard() {
       {/* KPIs principales */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          titulo="Desperdicio evitado (recuperado)"
-          valor={usdK(data.montoRecuperado)}
-          detalle={data.montoEnNegociacion > 0 ? `+ ${usd(data.montoEnNegociacion)} en negociación` : "Sin montos en negociación"}
-          icono={<HandCoins className="h-4 w-4" />}
-          tono="positivo"
+          titulo="Discrepancia señalada"
+          valor={usdK(data.montoDiscrepancia)}
+          detalle={`Aceptada: ${usd(data.montoAceptado)} · pendiente de revisión: ${usd(data.montoPendienteRevision)}`}
+          icono={<TrendingDown className="h-4 w-4" />}
+          tono="alerta"
         />
         <KpiCard
-          titulo="Flujo directo (automático)"
-          valor={`${data.pctFlujoDirecto}%`}
-          detalle={`${data.facturasLimpias} de ${data.totalFacturas} facturas aprobadas sin tocar a un humano`}
+          titulo="Flujo directo (sin hallazgos)"
+          valor={`${data.pctSinHallazgos}%`}
+          detalle={`${data.facturasLimpias} de ${data.totalFacturas} facturas fluyen sin tocar a un humano`}
           icono={<Bot className="h-4 w-4" />}
         />
         <KpiCard
-          titulo="Horas humanas ahorradas"
-          valor={`${data.horasAhorradas} h`}
-          detalle={`≈ ${jornadas} jornadas de revisión manual eliminadas`}
-          icono={<Timer className="h-4 w-4" />}
+          titulo="Hallazgos gestionados"
+          valor={`${data.hallazgosResueltos}/${data.hallazgosTotales}`}
+          detalle="Revisados por un auditor humano (aceptar · pedir evidencia · descartar)"
+          icono={<ListChecks className="h-4 w-4" />}
         />
         <KpiCard
-          titulo="Discrepancia detectada"
-          valor={usdK(data.montoDiscrepancia)}
-          detalle={data.pareto[0] ? `Causa #1: ${data.pareto[0].tipo.toLowerCase()}` : "Sin hallazgos registrados"}
-          icono={<TrendingDown className="h-4 w-4" />}
-          tono="alerta"
+          titulo="Montos sin evaluar (parada)"
+          valor={data.montoSinEvaluar > 0 ? usdK(data.montoSinEvaluar) : "$0"}
+          detalle={data.montoSinEvaluar > 0 ? "Regla de parada activa: falta evidencia compartida" : "Sin paradas activas"}
+          icono={<OctagonX className="h-4 w-4" />}
+          tono={data.montoSinEvaluar > 0 ? "alerta" : undefined}
         />
       </div>
 
@@ -129,7 +127,7 @@ export function Dashboard() {
           </span>
           <div className="min-w-0">
             <p className="nums text-2xl font-semibold tracking-tight text-emerald-700">{data.andon.verde}</p>
-            <p className="truncate text-xs text-muted-foreground">Línea fluida: facturas limpias aprobadas sin fricción</p>
+            <p className="truncate text-xs text-muted-foreground">Flujo limpio: conformes, siguen su curso al pago</p>
           </div>
         </Card>
         <button className="text-left" onClick={() => irA("cola")}>
@@ -139,7 +137,7 @@ export function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="nums text-2xl font-semibold tracking-tight text-amber-700">{data.andon.amarillo}</p>
-              <p className="truncate text-xs text-muted-foreground">Semáforo ámbar: esperan decisión humana →</p>
+              <p className="truncate text-xs text-muted-foreground">Esperan revisión humana →</p>
             </div>
           </Card>
         </button>
@@ -149,7 +147,7 @@ export function Dashboard() {
           </span>
           <div className="min-w-0">
             <p className="nums text-2xl font-semibold tracking-tight text-red-700">{data.andon.rojo}</p>
-            <p className="truncate text-xs text-muted-foreground">Línea detenida: duplicados y cobros irregulares</p>
+            <p className="truncate text-xs text-muted-foreground">Regla de parada: evidencia faltante, montos sin evaluar</p>
           </div>
         </Card>
       </div>
@@ -211,7 +209,7 @@ export function Dashboard() {
       </div>
 
       <Card className="rounded-2xl p-5">
-        <TituloSeccion sub="Facturas auditadas y monto en disputa por semana (últimas 10)">Tendencia de mejora</TituloSeccion>
+        <TituloSeccion sub="Facturas auditadas y monto con discrepancia por semana (últimas 10)">Tendencia de mejora</TituloSeccion>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data.tendencia} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
@@ -221,11 +219,11 @@ export function Dashboard() {
               <YAxis yAxisId="der" orientation="right" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`} />
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid oklch(0.91 0.008 250)", fontSize: 12 }}
-                formatter={(v: number, nombre) => (nombre === "Monto en disputa" ? [usd(v), "Monto en disputa"] : [v, nombre as string])}
+                formatter={(v: number, nombre) => (nombre === "Monto en disputa" ? [usd(v), "Monto señalado"] : [v, nombre as string])}
               />
               <Bar yAxisId="izq" dataKey="facturas" name="Facturas auditadas" fill={NAVY} fillOpacity={0.85} radius={[6, 6, 0, 0]} maxBarSize={30} />
               <Bar yAxisId="izq" dataKey="conHallazgo" name="Con hallazgo" fill={AMBAR} radius={[6, 6, 0, 0]} maxBarSize={30} />
-              <Line yAxisId="der" type="monotone" dataKey="monto" name="Monto en disputa" stroke={VERDE} strokeWidth={2} dot={{ r: 3 }} />
+              <Line yAxisId="der" type="monotone" dataKey="monto" name="Monto señalado" stroke={VERDE} strokeWidth={2} dot={{ r: 3 }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

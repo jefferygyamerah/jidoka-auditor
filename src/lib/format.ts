@@ -32,10 +32,13 @@ export const ZONA_LABEL: Record<string, string> = {
 
 export const ESTADO_LABEL: Record<string, string> = {
   RECIBIDA: "Recibida",
-  EN_AUDITORIA: "En auditoría",
-  OBSERVADA: "Observada",
-  APROBADA: "Aprobada",
-  RECHAZADA: "Rechazada",
+  EN_AUDITORIA: "Auditando",
+  PARA_REVISION: "Para revisión",
+  CERRADA: "Cerrada",
+  // compat con referencias históricas en datos viejos
+  OBSERVADA: "Para revisión",
+  APROBADA: "Cerrada",
+  RECHAZADA: "Cerrada",
 };
 
 export const SEVERIDAD_ORDEN: Record<string, number> = { BAJA: 1, MEDIA: 2, ALTA: 3, CRITICA: 4 };

@@ -24,7 +24,7 @@ const PRINCIPIOS = [
     nombre: "Automatización con criterio",
     lema: "La máquina puede detener la línea cuando algo falla",
     cuerpo:
-      "El agente audita 100% de las facturas al instante — algo humanamente imposible — y solo detiene el flujo cuando detecta una anomalía real. Las facturas limpias pasan sin fricción: la mayoría del volumen nunca toca a un humano.",
+      "El agente audita 100% de las facturas al instante — algo humanamente imposible — y solo escala lo que presenta anomalía real. Las facturas limpas fluyen sin fricción: la mayoría del volumen nunca toca a un humano.",
     donde: "Motor híbrido · estados de la cola · bitácora de decisiones",
   },
   {
@@ -32,7 +32,7 @@ const PRINCIPIOS = [
     nombre: "Flujo visual del trabajo",
     lema: "El trabajo avanza por estados visibles, empujado por demanda",
     cuerpo:
-      "Cada factura avanza por el tablero: Recibida → En auditoría → Observada/Aprobada/Rechazada. La tarjeta limita el trabajo en proceso del revisor humano y hace visible el cuello de botella en tiempo real.",
+      "Cada factura avanza por el tablero: Recibida → Auditando → Para revisión → Cerrada. El tablero limita el trabajo en proceso del revisor humano y hace visible el cuello de botella en tiempo real.",
     donde: "Cola de auditoría (tablero por estados)",
   },
   {
@@ -40,7 +40,7 @@ const PRINCIPIOS = [
     nombre: "Semáforo de alertas",
     lema: "Cualquier persona ve el estado del sistema de un vistazo",
     cuerpo:
-      "Verde (fluye), ámbar (detenida, requiere humano), rojo (rechazada por cobro irregular). El panel de control agrega el estado del sistema y el color viaja con cada tarjeta hasta el expediente.",
+      "Verde (flujo limpio), ámbar (espera revisión humana), rojo (regla de parada: montos sin evaluar por evidencia faltante). El panel agrega el estado del sistema y el color viaja con cada tarjeta hasta el expediente.",
     donde: "Panel de control · badges de color en tarjetas",
   },
   {
@@ -48,7 +48,7 @@ const PRINCIPIOS = [
     nombre: "A prueba de errores",
     lema: "El error no pasa a la siguiente estación",
     cuerpo:
-      "Nueve reglas deterministas (R1–R9) comparan cada partida contra el tarifario pactado, detectan duplicados por huella criptográfica, validan topes de honorarios, cuadran totales con ITBMS y cruzan partidas contra la zona dañada del siniestro. Cero interpretación: el estándar es objetivo.",
+      "Reglas deterministas comparan cada partida contra el tarifario pactado, detectan duplicados por huella criptográfica (respetando repeticiones legítimas con contexto documentado), validan topes de honorarios, cuadran totales con ITBMS y cruzan partidas contra la zona dañada del siniestro. Cero interpretación: el estándar es objetivo.",
     donde: "Motor de reglas · evidencia técnica en cada hallazgo",
   },
   {
@@ -56,15 +56,15 @@ const PRINCIPIOS = [
     nombre: "Juicio desde el dato primario",
     lema: "Verificar en el lugar de los hechos, no de memoria",
     cuerpo:
-      "El agente y el revisor juzgan desde el dato primario: la partida cobrada contra el precio pactado, el daño reportado contra el repuesto facturado. Cada hallazgo despliega su evidencia técnica sin salir del expediente.",
-    donde: "Detalle de factura · partidas vs tarifario · bitácora",
+      "El agente y el revisor juzgan desde el dato primario: la partida cobrada contra el precio pactado, el daño reportado contra el repuesto facturado. Cada hallazgo cita su evidencia (factura, tarifario, siniestro) con localizador verificable.",
+    donde: "Detalle de factura · evidencia citada · bitácora",
   },
   {
     icono: <HandHeart className="h-4.5 w-4.5" />,
     nombre: "Mejora continua",
     lema: "Cada anomalía alimenta la prevención",
     cuerpo:
-      "El informe de IA encadena porqués hasta la causa raíz del comportamiento del taller y propone acciones concretas. La ficha por taller (top observaciones) convierte la detección en prevención: el Pareto muestra dónde invertir.",
+      "El informe del agente señala cada discrepancia con su evidencia; el auditor acepta, pide evidencia o descarta con motivo, y ese aprendizaje queda en la bitácora. El Pareto muestra dónde invertir en prevención por taller.",
     donde: "Informe del agente · Pareto 80/20 · top talleres",
   },
   {
@@ -72,8 +72,8 @@ const PRINCIPIOS = [
     nombre: "Eliminación de desperdicio",
     lema: "El mayor desperdicio: revisar a mano lo que ya cumple",
     cuerpo:
-      "El KPI central del panel es el desperdicio evitado: horas humanas ahorradas y monto recuperado. La revisión manual se reserva para su único valor real: decidir sobre la excepción con criterio.",
-    donde: "KPIs de flujo directo y horas ahorradas",
+      "El KPI central es el flujo directo: facturas conformes que nunca tocan a un humano. La revisión manual se reserva para su único valor real: juzgar la excepción con criterio — nunca emitir veredictos de pago, que quedan en la aseguradora.",
+    donde: "KPIs de flujo directo y revisión",
   },
   {
     icono: <KanbanSquare className="h-4.5 w-4.5" />,
@@ -167,9 +167,9 @@ export function Filosofia() {
         <div className="grid gap-3 sm:grid-cols-4">
           {[
             { n: "1", t: "Recepción y normalización", d: "Partidas, totales y huella criptográfica anti-duplicados." },
-            { n: "2", t: "Reglas anti-errores (R1–R9)", d: "Comparación determinista contra tarifario, siniestro y topes pactados." },
-            { n: "3", t: "Decisión automática", d: "Riesgo 0–100: flujo directo, ajuste propuesto o línea detenida." },
-            { n: "4", t: "Informe IA (LLM)", d: "Resumen, recomendación y causa raíz con 5 porqués para el revisor." },
+            { n: "2", t: "Reglas poka-yoke", d: "Comparación determinista contra tarifario, siniestro y topes pactados." },
+            { n: "3", t: "Regla de parada", d: "Si falta evidencia compartida, detiene la línea: montos «sin evaluar»." },
+            { n: "4", t: "Informe del agente (LLM)", d: "Informe línea por línea con evidencia citada para el revisor humano." },
           ].map((paso) => (
             <div key={paso.n} className="rounded-xl border border-border/60 p-4">
               <span className="nums flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">

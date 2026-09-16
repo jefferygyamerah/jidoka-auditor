@@ -17,6 +17,7 @@ const ETAPA_COLOR: Record<string, string> = {
   NORMALIZACION: "bg-sky-50 text-sky-700",
   REGLAS: "bg-violet-50 text-violet-700",
   IA: "bg-indigo-50 text-indigo-700",
+  PARADA: "bg-red-50 text-red-700",
   DECISION: "bg-amber-50 text-amber-700",
   HUMANO: "bg-emerald-50 text-emerald-700",
 };
@@ -32,7 +33,7 @@ export function CentroJidoka() {
     () => (facturas ?? []).filter((f) => f.estadoAuditoria === "RECIBIDA" || f.estadoAuditoria === "EN_AUDITORIA"),
     [facturas]
   );
-  const observadas = useMemo(() => (facturas ?? []).filter((f) => f.estadoAuditoria === "OBSERVADA"), [facturas]);
+  const observadas = useMemo(() => (facturas ?? []).filter((f) => f.estadoAuditoria === "PARA_REVISION"), [facturas]);
   const ejecutadas = useMemo(() => (facturas ?? []).filter((f) => f.estadoAuditoria !== "RECIBIDA" && f.estadoAuditoria !== "EN_AUDITORIA"), [facturas]);
 
   async function auditar(id: string, numero: string) {
@@ -42,8 +43,8 @@ export function CentroJidoka() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error");
       toast({
-        title: `${numero}: ${json.hallazgos === 0 ? "sin hallazgos, flujo directo" : `${json.hallazgos} hallazgo(s), semáforo ${json.estado === "RECHAZADA" ? "rojo" : "amarillo"}`}`,
-        description: `Riesgo ${json.riesgo}/100 · discrepancia ${usd(json.montoDiscrepancia)}`,
+        title: `${numero}: ${json.hallazgos === 0 ? "sin hallazgos, flujo limpio" : json.parada ? "regla de parada activa" : `${json.hallazgos} hallazgo(s), esperan revisión`}`,
+        description: `Riesgo ${json.riesgo}/100 · discrepancia señalada ${usd(json.montoDiscrepancia)}`,
       });
       bump();
       await refetch();
@@ -117,11 +118,11 @@ export function CentroJidoka() {
           </Card>
 
           <Card className="rounded-2xl p-5">
-            <TituloSeccion sub={`${ejecutadas.length} expedientes decididos por el pipeline`}>Últimos resultados del agente</TituloSeccion>
+            <TituloSeccion sub={`${ejecutadas.length} expedientes procesados por el pipeline`}>Últimos resultados del agente</TituloSeccion>
             <div className="fino max-h-96 space-y-2 overflow-y-auto pr-1">
               {ejecutadas.slice(0, 12).map((f) => (
                 <button key={f.id} className="flex w-full items-center gap-3 rounded-xl border border-border/50 px-3.5 py-2.5 text-left hover:bg-accent/60" onClick={() => abrirFactura(f.id)}>
-                  <span className={cn("h-2 w-2 shrink-0 rounded-full", f.estadoAuditoria === "APROBADA" ? "bg-emerald-500" : f.estadoAuditoria === "RECHAZADA" ? "bg-red-500" : "bg-amber-400")} />
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", f.sinEvaluar ? "bg-red-500" : f.estadoAuditoria === "CERRADA" ? "bg-emerald-500" : "bg-amber-400")} />
                   <span className="nums min-w-0 flex-1 truncate text-[12.5px] font-medium">{f.numero}</span>
                   <span className="hidden truncate text-[11.5px] text-muted-foreground sm:block">{f.taller.nombre}</span>
                   <span className="nums text-[12px] text-muted-foreground">{usd(f.montoTotal)}</span>
@@ -174,7 +175,7 @@ export function CentroJidoka() {
       {/* Observadas esperando humano */}
       {observadas.length > 0 && (
         <Card className="rounded-2xl p-5">
-          <TituloSeccion sub="Automatización con criterio: el agente detuvo, el auditor decide">Semáforo ámbar — esperando decisión humana ({observadas.length})</TituloSeccion>
+          <TituloSeccion sub="Automatización con criterio: el agente detecta, el auditor decide">Esperando revisión humana ({observadas.length})</TituloSeccion>
           <div className="grid gap-2.5 md:grid-cols-2">
             {observadas.map((f) => (
               <div key={f.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/50 p-3.5">

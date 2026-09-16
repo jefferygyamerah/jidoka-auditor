@@ -42,3 +42,12 @@ Work Log:
 Stage Summary:
 - La marca "JIDOKA" se conserva solo como nombre del producto (logo, título, footer); todo el copy operativa está en español natural. Cambio de nombre de marca disponible a pedido (1 línea).
 - Claves internas de código (vista "andon"/"jidoka", campo andon en API, componente PuntoAndon) se mantienen: no son visibles al usuario.
+
+## 2026-09-16 · Alineación al flujo acordado (#44, dominio autos)
+- Informe-only: el agente ya no aprueba/rechaza pagos ni sugiere montos globales; estados de flujo RECIBIDA → EN_AUDITORIA → PARA_REVISION → CERRADA.
+- Regla de parada (R10): sin tarifario/evidencia compartida la línea se detiene, montos quedan «sin evaluar» y el informe lo dice de forma visible.
+- Revisión por hallazgo: aceptar / pedir evidencia / descartar con motivo (R10 siempre exige comentario); informe se cierra cuando no quedan pendientes.
+- Anti-duplicado corregido: repeticiones legítimas con contexto documentado (posición/hora) no se marcan como duplicadas (FAC-2026-0133 en el seed demuestra el caso).
+- Cada hallazgo cita evidencia con localizador (línea de factura / código de tarifario / hecho del siniestro).
+- UI alineada: kanban de 4 estados, informe del agente línea por línea con montos sin evaluar, banner de parada, dashboard sin KPIs de pago.
+- Verificado: tsc limpio, build Next.js OK, 34 facturas sembradas, 4 escenarios acordados probados end-to-end (R1 precio, R2 duplicado real, repetición legítima, R10 parada) + revisión por hallazgo vía API.

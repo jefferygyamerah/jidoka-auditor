@@ -1,4 +1,6 @@
 // Tipos compartidos entre API y cliente
+// Contrato alineado al alcance acordado (#44): informe de discrepancias
+// línea por línea; el agente nunca decide pagos.
 export interface TallerDTO {
   id: string;
   nombre: string;
@@ -27,6 +29,17 @@ export interface SiniestroDTO {
   montoFacturado: number;
 }
 
+export interface SiniestroResumenDTO {
+  id: string;
+  numero: string;
+  vehiculo: string;
+  placa: string;
+  zonaDanio: string;
+  asegurado: string;
+  descripcion: string;
+  montoReserva: number;
+}
+
 export interface HallazgoDTO {
   id: string;
   regla: string;
@@ -35,6 +48,18 @@ export interface HallazgoDTO {
   descripcion: string;
   montoDiscrepancia: number;
   detalle: Record<string, unknown>;
+  evidencia: EvidenciaCita[];
+  ajustePropuesto: number | null;
+  estadoRevision: "PENDIENTE" | "ACEPTADO" | "DESCARTADO" | "EVIDENCIA_SOLICITADA";
+  comentarioRevision: string | null;
+  revisadoPor: string | null;
+  revisadoEn: string | null;
+  evidenciaPendiente: string | null;
+}
+
+export interface EvidenciaCita {
+  fuente: string; // p.ej. "Tarifario pactado Taller X v3", "Factura F-001234 p.1 línea 3", "Informe del siniestro S-2026-001"
+  localizador: string; // p.ej. "código PAI-4421", "línea 3", "zona FRENTE"
 }
 
 export interface PartidaDTO {
@@ -47,6 +72,7 @@ export interface PartidaDTO {
   unidad: string;
   precioUnitario: number;
   subtotal: number;
+  contexto?: string | null;
   precioPactado?: number | null;
   desvioPct?: number | null;
   duplicada?: boolean;
@@ -55,11 +81,11 @@ export interface PartidaDTO {
 
 export interface RevisionDTO {
   id: string;
+  hallazgoId: string | null;
   auditor: string;
   rol: string;
   accion: string;
   comentario: string;
-  montoAprobado: number | null;
   fecha: string;
 }
 
@@ -71,12 +97,13 @@ export interface LogAgenteDTO {
   creadoEn: string;
 }
 
-export interface InformeIA {
+/** Informe del agente: resume discrepancias línea por línea. Sin recomendación de pago. */
+export interface InformeAgente {
   resumen: string;
-  recomendacion: "APROBAR" | "APROBAR_CON_AJUSTE" | "ESCALAR" | "RECHAZAR";
-  causaRaiz: string;
-  acciones: string[];
-  confianza: number;
+  estadoInforme: "LISTO" | "INCOMPLETO";
+  lineas: { linea: number | null; descripcion: string; estado: "CONFORME" | "DISCREPANCIA" | "SIN_EVALUAR"; detalle: string }[];
+  montosSinEvaluar: string[];
+  nota: string;
 }
 
 export interface FacturaListaDTO {
@@ -85,14 +112,17 @@ export interface FacturaListaDTO {
   estadoAuditoria: string;
   riesgo: number;
   montoTotal: number;
-  montoSugerido: number | null;
+  montoAjusteProp: number | null;
+  montoSinEvaluar: number | null;
+  sinEvaluar: boolean;
   fechaEmision: string;
   fechaIngreso: string;
   informeEnCurso: boolean;
   tieneInforme: boolean;
   taller: { id: string; nombre: string; ciudad: string };
-  siniestro: { id: string; numero: string; vehiculo: string; placa: string; zonaDanio: string; asegurado: string; montoReserva: number };
+  siniestro: SiniestroResumenDTO;
   hallazgosCount: number;
+  hallazgosPendientes: number;
   severidadMaxima: string | null;
   montoDiscrepancia: number;
   ultimaAccion: string | null;
@@ -101,23 +131,27 @@ export interface FacturaListaDTO {
 export interface FacturaDetalleDTO extends FacturaListaDTO {
   itbmsPct: number;
   huella: string;
+  notaBloqueo: string | null;
   partidas: PartidaDTO[];
   hallazgos: HallazgoDTO[];
   logs: LogAgenteDTO[];
   revisiones: RevisionDTO[];
-  informeIA: InformeIA | null;
+  informeAgente: InformeAgente | null;
 }
 
 export interface DashboardDTO {
   totalFacturas: number;
   porEstado: Record<string, number>;
+  porEstadoHallazgo: Record<string, number>;
   montoFacturado: number;
   montoDiscrepancia: number;
-  montoRecuperado: number;
-  montoEnNegociacion: number;
+  montoAceptado: number; // suma de discrepancias de hallazgos ACEPTADOS por el auditor
+  montoPendienteRevision: number; // discrepancias aún sin decisión del auditor
+  montoSinEvaluar: number; // montos bloqueados por regla de parada
   facturasLimpias: number;
-  pctFlujoDirecto: number;
-  horasAhorradas: number;
+  pctSinHallazgos: number;
+  hallazgosResueltos: number;
+  hallazgosTotales: number;
   pareto: { tipo: string; cantidad: number; monto: number }[];
   tendencia: { semana: string; facturas: number; conHallazgo: number; monto: number }[];
   topTalleres: { nombre: string; hallazgos: number; monto: number; facturas: number }[];
