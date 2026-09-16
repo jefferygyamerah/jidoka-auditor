@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// JIDOKA · Auditor Agéntico de Facturación de Siniestros
+// Aseguradora: Istmo Seguros (Panamá) · Moneda: USD · ITBMS 7%
+// ─────────────────────────────────────────────────────────────
+
+model Taller {
+  id           String    @id @default(cuid())
+  nombre       String
+  ruc          String
+  ciudad       String
+  telefono     String
+  contacto     String
+  descuentoPct Float     @default(0)
+  activo       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  tarifario    TarifarioItem[]
+  facturas     Factura[]
+}
+
+model TarifarioItem {
+  id            String  @id @default(cuid())
+  tallerId      String
+  taller        Taller  @relation(fields: [tallerId], references: [id])
+  categoria     String // REPUESTO | INSUMO | MANO_OBRA | HONORARIO
+  codigo        String
+  descripcion   String
+  unidad        String // UND | GLB | LTR | KG | RLL | HRS | SRV | CAJA
+  precioPactado Float
+  activo        Boolean @default(true)
+
+  @@unique([tallerId, codigo])
+  @@index([tallerId])
+}
+
+model Siniestro {
+  id              String    @id @default(cuid())
+  numero          String    @unique
+  poliza          String
+  asegurado       String
+  vehiculo        String
+  anioVehiculo    Int
+  placa           String
+  fechaOcurrencia DateTime
+  tipoCobertura   String // Colisión | Vidrios | Responsabilidad Civil | Pérdida Parcial
+  zonaDanio       String // FRENTE | TRASERA | LATERAL_IZQ | LATERAL_DER | MULTIPLE | VIDRIOS
+  descripcion     String
+  montoReserva    Float
+  estado          String    @default("EN_TALLER") // EN_TALLER | EN_AUDITORIA | LIQUIDADO | CERRADO
+  createdAt       DateTime  @default(now())
+  facturas        Factura[]
+}
+
+model Factura {
+  id              String    @id @default(cuid())
+  numero          String    @unique
+  tallerId        String
+  taller          Taller    @relation(fields: [tallerId], references: [id])
+  siniestroId     String
+  siniestro       Siniestro @relation(fields: [siniestroId], references: [id])
+  fechaEmision    DateTime
+  fechaIngreso    DateTime  @default(now())
+  montoTotal      Float // total declarado (con ITBMS)
+  itbmsPct        Float     @default(7)
+  estadoAuditoria String    @default("RECIBIDA") // RECIBIDA | EN_AUDITORIA | OBSERVADA | APROBADA | RECHAZADA
+  riesgo          Int       @default(0) // 0-100
+  huella          String    @default("") // fingerprint anti-duplicados
+  informeIA       String? // JSON: resumen, recomendacion, causaRaiz, acciones, confianza
+  informeEnCurso  Boolean   @default(false)
+  montoSugerido   Float? // monto ajustado propuesto por el agente
+  createdAt       DateTime  @default(now())
+
+  partidas   Partida[]
+  hallazgos  Hallazgo[]
+  logs       LogAgente[]
+  revisiones Revision[]
+
+  @@index([estadoAuditoria])
+  @@index([tallerId])
+  @@index([siniestroId])
+}
+
+model Partida {
+  id             String  @id @default(cuid())
+  facturaId      String
+  factura        Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  linea          Int
+  categoria      String // REPUESTO | INSUMO | MANO_OBRA | HONORARIO
+  codigo         String
+  descripcion    String
+  cantidad       Float
+  unidad         String
+  precioUnitario Float // precio cobrado
+  subtotal       Float
+
+  @@index([facturaId])
+}
+
+model Hallazgo {
+  id                String   @id @default(cuid())
+  facturaId         String
+  factura           Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  partidaId         String?
+  regla             String // R1..R9
+  tipo              String // etiqueta legible
+  severidad         String // BAJA | MEDIA | ALTA | CRITICA
+  descripcion       String
+  montoDiscrepancia Float    @default(0)
+  detalle           String   @default("") // JSON con cobrado vs pactado
+  createdAt         DateTime @default(now())
+
+  @@index([facturaId])
+}
+
+model LogAgente {
+  id        String   @id @default(cuid())
+  facturaId String
+  factura   Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  paso      Int
+  etapa     String // RECEPCION | NORMALIZACION | REGLAS | IA | DECISION
+  mensaje   String
+  creadoEn  DateTime @default(now())
+
+  @@index([facturaId])
+}
+
+model Revision {
+  id            String   @id @default(cuid())
+  facturaId     String
+  factura       Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  auditor       String
+  rol           String // AUDITOR | SUPERVISOR | ADMIN
+  accion        String // APROBAR | RECHAZAR | ESCALAR | OBSERVAR
+  comentario    String
+  montoAprobado Float?
+  fecha         DateTime @default(now())
+
+  @@index([facturaId])
+}
+
+model Configuracion {
+  id                String @id @default("GLOBAL")
+  toleranciaPct     Float  @default(2) // % tolerado sobre precio pactado
+  topeHonorariosPct Float  @default(20) // honorarios máx. como % de insumos+repuestos+mano de obra
+  umbralAutoajuste  Float  @default(50) // discrepancias menores a este monto (USD) el agente propone ajuste automático
+}
