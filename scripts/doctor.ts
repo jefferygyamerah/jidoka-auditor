@@ -22,7 +22,7 @@ reporta(major >= 20 ? "OK" : "FALLA", "Runtime", `node ${process.versions.node}$
 const url = process.env.DATABASE_URL ?? "";
 let rutaDb = "";
 if (!url.startsWith("file:")) {
-  reporta("FALLA", "DATABASE_URL", url ? `«${url}» no es SQLite (file:)` : "no definida: crea .env con DATABASE_URL=file:./db/custom.db");
+  reporta("FALLA", "DATABASE_URL", url ? `«${url}» no es SQLite (file:)` : "no definida: crea .env con DATABASE_URL=file:../db/custom.db (relativo a prisma/)");
 } else {
   const cruda = url.slice(5);
   rutaDb = isAbsolute(cruda) ? cruda : resolve(process.cwd(), "prisma", cruda); // Prisma resuelve relativo a prisma/schema.prisma
@@ -49,8 +49,8 @@ else reporta("OK", "Modo IA", "sin claves de nube · informe determinista comple
 // 5 · Fixtures con resultado esperado
 try {
   const fx = leerFixtures();
-  const reglas = new Set(fx.flatMap((f) => f.esperado.hallazgos.map((h) => h.regla)));
   const invalidos = fx.filter((f) => !f.esperado?.factura || !f.facturas.some((x) => x.numero === f.esperado.factura));
+  const reglas = new Set(fx.flatMap((f) => (f.esperado?.hallazgos ?? []).map((h) => h.regla)));
   reporta(invalidos.length ? "FALLA" : "OK", "Fixtures", invalidos.length ? `esperado.factura no coincide en ${invalidos.map((f) => f.id).join(", ")}` : `${fx.length} expedientes · reglas cubiertas: ${[...reglas].sort().join(", ")} · verifícalos con: bun test`);
 } catch (e) {
   reporta("FALLA", "Fixtures", (e as Error).message);

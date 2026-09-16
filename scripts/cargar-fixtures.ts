@@ -13,7 +13,8 @@ for (const exp of leerFixtures()) {
     await ejecutarAuditoria(ids[f.numero]);
     await generarInformeAgente(ids[f.numero]);
   }
-  const diffs = await verificarEsperado(db, exp, ids[exp.esperado.factura]);
+  const objetivo = ids[exp.esperado.factura];
+  const diffs = objetivo ? await verificarEsperado(db, exp, objetivo) : [`esperado.factura «${exp.esperado.factura}» no está entre las facturas del expediente`];
   fallas += diffs.length ? 1 : 0;
   console.log(`${diffs.length ? "✖" : "✔"} ${exp.id} ${exp.titulo}${diffs.length ? "\n    " + diffs.join("\n    ") : ""}`);
 }

@@ -52,6 +52,7 @@ export async function cargarExpediente(db: PrismaClient, exp: ExpedienteFixture)
     for (const f of existentes) ids[f.numero] = f.id;
     return ids;
   }
+  if (existentes.length) throw new Error(`${exp.id}: carga parcial previa (${existentes.map((f) => f.numero).join(", ")}); borra esas facturas o usa una BD limpia`);
   const taller = await db.taller.create({ data: { descuentoPct: 0, ...exp.taller } });
   for (const t of exp.tarifario) await db.tarifarioItem.create({ data: { ...t, tallerId: taller.id } });
   const siniestro = await db.siniestro.create({
