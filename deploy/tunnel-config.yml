@@ -1,8 +1,0 @@
-tunnel: 934a420e-cb77-48b4-913f-79fceff35e44
-credentials-file: /home/jeffery/.cloudflared/934a420e-cb77-48b4-913f-79fceff35e44.json
-protocol: http2
-
-ingress:
-  - hostname: jidoka.adwentech.com
-    service: http://127.0.0.1:3100
-  - service: http_status:404

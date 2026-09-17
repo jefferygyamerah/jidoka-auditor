@@ -58,3 +58,5 @@ deploy/*.log
 deploy/server.pid
 deploy/ux-after.png
 deploy/shot.js
+
+deploy/tunnel-config.yml
