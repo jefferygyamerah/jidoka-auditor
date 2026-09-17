@@ -152,7 +152,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <footer className="mt-auto border-t border-border/50 bg-white/60">
         <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-1 px-4 py-4 text-[11px] text-muted-foreground sm:flex-row lg:px-8">
           <p>
-            JIDOKA · Auditoría inteligente de facturación de siniestros — demo para hackatón
+            JIDOKA · Auditoría inteligente de facturación de siniestros — demo para hackatón ·{" "}
+            <a
+              href="https://github.com/jefferygyamerah/jidoka-auditor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+            >
+              Repositorio y entregables para jueces (GitHub)
+            </a>
           </p>
           <p className="nums">USD · ITBMS 7% · Panamá</p>
         </div>
