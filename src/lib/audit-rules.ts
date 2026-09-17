@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────
 import crypto from "crypto";
 import { db } from "@/lib/db";
+import { proponerEquivalencia } from "@/lib/equivalencias";
 import type { EvidenciaCita } from "@/lib/types";
 
 export type Severidad = "BAJA" | "MEDIA" | "ALTA" | "CRITICA";
@@ -162,22 +163,42 @@ export async function auditarReglas(facturaId: string) {
         });
       }
     } else {
-      // R4 · Partida no autorizada (código inexistente en el convenio)
-      const parecido = tarifario.find((t) => t.descripcion.toLowerCase() === p.descripcion.toLowerCase());
+      // R4 · Partida no autorizada (código inexistente en el convenio).
+      // La equivalencia con el catálogo es una PROPUESTA determinista con
+      // confianza y cita; no cambia el código ni retira el hallazgo.
+      const equivalencia = proponerEquivalencia(
+        { codigo: p.codigo, descripcion: p.descripcion, unidad: p.unidad, categoria: p.categoria },
+        tarifario,
+        {
+          factura: `Factura ${factura.numero}`,
+          localizadorFactura: `línea ${p.linea} · ${p.descripcion} (cód. ${p.codigo})`,
+          catalogo: nombreTarifario,
+        }
+      );
+      const fiable = equivalencia != null && equivalencia.confianza >= 0.8;
       hallazgos.push({
         partidaId: p.id,
         regla: "R4",
         tipo: ETIQUETA_REGLA.R4,
-        severidad: parecido ? "BAJA" : "MEDIA",
-        descripcion: `La partida «${p.descripcion}» (código ${p.codigo}) no existe en el tarifario pactado con ${factura.taller.nombre}.`,
+        severidad: fiable ? "BAJA" : "MEDIA",
+        descripcion:
+          `La partida «${p.descripcion}» (código ${p.codigo}) no existe en el tarifario pactado con ${factura.taller.nombre}.` +
+          (equivalencia
+            ? ` Equivalencia propuesta: ${equivalencia.codigoPropuesto} «${equivalencia.descripcionPropuesta}» (confianza ${Math.round(equivalencia.confianza * 100)}%), a confirmar por el auditor.`
+            : ""),
         montoDiscrepancia: p.subtotal,
         ajustePropuesto: null,
-        detalle: { codigo: p.codigo, descripcion: p.descripcion, subtotal: p.subtotal, posibleHomologo: parecido?.codigo ?? null },
+        detalle: { codigo: p.codigo, descripcion: p.descripcion, subtotal: p.subtotal, cantidad: p.cantidad, unidad: p.unidad, precioUnitario: p.precioUnitario, equivalencia },
         evidencia: [
           { fuente: `Factura ${factura.numero}`, localizador: `línea ${p.linea} · ${p.descripcion}` },
-          { fuente: nombreTarifario, localizador: parecido ? `homólogo por descripción: código ${parecido.codigo}` : "código no encontrado" },
+          {
+            fuente: nombreTarifario,
+            localizador: equivalencia
+              ? `equivalencia propuesta: código ${equivalencia.codigoPropuesto} · ${equivalencia.descripcionPropuesta}`
+              : "código no encontrado y sin equivalencia con el catálogo",
+          },
         ],
-        evidenciaPendiente: parecido ? null : `Autorización o codificación oficial de «${p.descripcion}» en el convenio`,
+        evidenciaPendiente: fiable ? null : `Autorización o codificación oficial de «${p.descripcion}» en el convenio`,
       });
     }
 

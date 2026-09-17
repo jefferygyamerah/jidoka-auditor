@@ -49,12 +49,35 @@ export interface HallazgoDTO {
   montoDiscrepancia: number;
   detalle: Record<string, unknown>;
   evidencia: EvidenciaCita[];
+  equivalencia: EquivalenciaPropuesta | null; // «¿de dónde sale este monto?» cuando la partida no está en el catálogo
+  propuestaIA: PropuestaIA | null; // el LLM lee y cita; no decide
   ajustePropuesto: number | null;
   estadoRevision: "PENDIENTE" | "ACEPTADO" | "DESCARTADO" | "EVIDENCIA_SOLICITADA";
   comentarioRevision: string | null;
   revisadoPor: string | null;
   revisadoEn: string | null;
   evidenciaPendiente: string | null;
+}
+
+/**
+ * Equivalencia con el catálogo propuesta para una partida que no coincide por código.
+ * Es una PROPUESTA con evidencia: ni el motor ni el LLM cambian el código; decide el auditor.
+ */
+export interface EquivalenciaPropuesta {
+  codigoPropuesto: string;
+  descripcionPropuesta: string;
+  precioPactado: number | null;
+  confianza: number; // 0–1 (determinista: tokens comunes + unidad + categoría)
+  motivo: string;
+  evidencia: EvidenciaCita[];
+}
+
+/** Alternativa sugerida por el LLM citando la descripción exacta del tarifario. Nunca decide. */
+export interface PropuestaIA {
+  codigoPropuesto: string;
+  descripcionCitada: string; // texto exacto del tarifario citado por el modelo
+  motivo: string;
+  coincideConElMotor: boolean;
 }
 
 export interface EvidenciaCita {

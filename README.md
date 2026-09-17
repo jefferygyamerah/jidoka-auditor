@@ -43,5 +43,26 @@ bun run fixtures:cargar --reauditar   # vuelve a auditar TODO: borra hallazgos y
 | R9 | Monto sobre la reserva del siniestro |
 | R10 | Parada: sin tarifario cargado, la línea queda sin evaluar |
 
+## Equivalencias con el catálogo
+
+Cuando una partida no coincide por **código** con el tarifario (R4), el motor propone la
+equivalencia más probable de forma determinista: normaliza el texto (minúsculas, sin tildes,
+plural a raíz, sinónimos de taller de `src/lib/equivalencias-sinonimos.json`) y puntúa por
+términos en común, unidad y categoría. La propuesta viaja con **confianza (0–1), motivo en
+palabras y cita de evidencia**, y con confianza ≥ 0.80 el hallazgo baja a severidad BAJA —
+pero **no desaparece**: lo confirma o lo descarta el auditor, con motivo.
+
+Con IA habilitada (`JIDOKA_DISABLE_IA` ≠ 1 y proveedor configurado), el LLM puede **proponer**
+otra equivalencia citando la descripción exacta del tarifario; solo se guarda si el código
+existe y la cita es literal, y queda junto a la del motor como sugerencia. **El LLM lee y cita;
+las reglas deciden qué se marca; el auditor aprueba o descarta.**
+
+En la pantalla del hallazgo, el bloque «¿De dónde sale este monto?» muestra cobrado vs pactado
+(o «sin catálogo»), la equivalencia propuesta con su confianza y motivo, y la cita de evidencia.
+
+La **entrada desde una base de Notion queda fuera del corte del hackathon**: el punto de
+enganche está marcado en `src/lib/fixtures.ts` (`leerFixtures`), que es donde entraría como
+otra fuente de expedientes sin tocar motor ni UI.
+
 `fixtures/expedientes/EXP-NN.json` son expedientes sintéticos (rotulados DEMO) con el
 resultado esperado; son el contrato del motor. Ver `fixtures/README.md`.

@@ -37,6 +37,9 @@ export interface ExpedienteFixture {
 export const DIR_FIXTURES = join(process.cwd(), "fixtures", "expedientes");
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// ponytail: entrada desde Notion queda fuera del corte del hackathon. Este es el punto de
+// entrada de carga de expedientes; una base de Notion entraría aquí como otra fuente que
+// devuelve ExpedienteFixture[], sin tocar el motor ni la UI.
 export function leerFixtures(dir = DIR_FIXTURES): ExpedienteFixture[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith(".json"))

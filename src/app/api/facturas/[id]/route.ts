@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { severidadMaxima } from "@/lib/format";
-import type { EvidenciaCita, FacturaDetalleDTO, InformeAgente } from "@/lib/types";
+import type { EquivalenciaPropuesta, EvidenciaCita, FacturaDetalleDTO, InformeAgente, PropuestaIA } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       };
     }),
     hallazgos: f.hallazgos.map((h) => {
-      const d = safeJson<{ evidencia?: EvidenciaCita[] }>(h.detalle);
+      const d = safeJson<{ evidencia?: EvidenciaCita[]; equivalencia?: EquivalenciaPropuesta | null; propuestaIA?: PropuestaIA | null }>(h.detalle);
       return {
         id: h.id,
         partidaId: h.partidaId,
@@ -84,6 +84,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         montoDiscrepancia: h.montoDiscrepancia,
         detalle: safeJson<Record<string, unknown>>(h.detalle) ?? {},
         evidencia: d?.evidencia ?? [],
+        equivalencia: d?.equivalencia ?? null,
+        propuestaIA: d?.propuestaIA ?? null,
         ajustePropuesto: h.ajustePropuesto,
         estadoRevision: h.estadoRevision as FacturaDetalleDTO["hallazgos"][number]["estadoRevision"],
         comentarioRevision: h.comentarioRevision,

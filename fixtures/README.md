@@ -18,6 +18,7 @@ motor debe encontrar. Todo es sintético y está rotulado DEMO. Precios en USD, 
 | EXP-10 | Taller sin tarifario cargado | R10 en las 4 líneas, `sinEvaluar`, informe INCOMPLETO |
 | EXP-11 | 18 galones de pintura para un parachoques | R5 en línea 3 |
 | EXP-12 | Vidrios: factura 17 % sobre la reserva | R9, $163.87 |
+| EXP-13 | «Bómper delantero» con código propio | R4 en línea 1, BAJA, con equivalencia R-1001 propuesta |
 
 `esperado.hallazgos` lista `{regla, linea}` (sin `linea` = hallazgo a nivel de factura).
 `riesgo` sigue los pesos del motor (BAJA 4 · MEDIA 12 · ALTA 26 · CRÍTICA 42, tope 100).

@@ -27,6 +27,7 @@ import {
   OctagonX,
   RefreshCw,
   RotateCcw,
+  Receipt,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -533,6 +534,8 @@ function HallazgoCard({
   detalleAbierto: boolean;
   onToggleDetalle: () => void;
 }) {
+  const fuentesDelBloque = new Set(h.equivalencia?.evidencia.map((e) => e.fuente) ?? []);
+  const evidenciaRestante = h.evidencia.filter((e) => !fuentesDelBloque.has(e.fuente));
   return (
     <div className={cn("rounded-xl border bg-card p-3.5", h.estadoRevision === "PENDIENTE" ? "border-border/60" : "border-border/40 opacity-95")}>
       <div className="flex flex-wrap items-center gap-2">
@@ -546,17 +549,19 @@ function HallazgoCard({
       </div>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{h.descripcion}</p>
 
+      <DeDondeSaleEsteMonto h={h} />
+
       {/* Ajuste propuesto (referencia no vinculante) */}
       {h.ajustePropuesto != null && h.ajustePropuesto !== 0 && (
         <p className="nums mt-1.5 text-[11.5px] text-slate-600">Ajuste de línea propuesto (referencia): {usd(h.ajustePropuesto)}</p>
       )}
 
-      {/* Citas de evidencia */}
-      {h.evidencia.length > 0 && (
+      {/* Citas de evidencia (sin repetir las fuentes que ya cita el bloque del monto) */}
+      {evidenciaRestante.length > 0 && (
         <div className="mt-2">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Evidencia citada</p>
           <ul className="space-y-1">
-            {h.evidencia.map((e, i) => (
+            {evidenciaRestante.map((e, i) => (
               <li key={i} className="flex items-start gap-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
                 <MessageSquareQuote className="mt-0.5 h-3 w-3 shrink-0" />
                 <span>
@@ -644,6 +649,81 @@ function HallazgoCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * «¿De dónde sale este monto?» — la trazabilidad del hallazgo en un bloque:
+ * cobrado vs pactado (o «sin catálogo»), la equivalencia propuesta con su confianza
+ * y su motivo, y la cita de evidencia. Nada de esto decide: los botones de arriba sí.
+ */
+function DeDondeSaleEsteMonto({ h }: { h: HallazgoDTO }) {
+  const d = h.detalle as { cobrado?: number; pactado?: number; precioUnitario?: number; cantidad?: number; unidad?: string; subtotal?: number };
+  const cobrado = d.cobrado ?? d.precioUnitario;
+  const pactadoDirecto = d.pactado ?? null;
+  const pactadoEquivalente = pactadoDirecto == null ? h.equivalencia?.precioPactado ?? null : null;
+  if (cobrado == null && d.subtotal == null && !h.equivalencia) return null;
+
+  return (
+    <div className="mt-2.5 rounded-xl border border-border/60 bg-secondary/40 px-3 py-2.5">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Receipt className="h-3 w-3" /> ¿De dónde sale este monto?
+      </p>
+
+      <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+        <Cifra
+          etiqueta="Cobrado"
+          valor={cobrado != null ? usd(cobrado) : usd(d.subtotal ?? 0)}
+          nota={cobrado != null && d.cantidad != null ? `× ${d.cantidad} ${d.unidad ?? ""} = ${usd(cobrado * d.cantidad)}` : null}
+        />
+        <Cifra
+          etiqueta="Pactado"
+          valor={pactadoDirecto != null ? usd(pactadoDirecto) : pactadoEquivalente != null ? usd(pactadoEquivalente) : "sin catálogo"}
+          nota={pactadoDirecto == null ? (pactadoEquivalente != null ? "según la equivalencia propuesta" : "el código no está en el convenio") : null}
+          apagado={pactadoDirecto == null}
+        />
+        <Cifra etiqueta="Diferencia señalada" valor={usd(h.montoDiscrepancia)} destacado />
+      </div>
+
+      {h.equivalencia && (
+        <div className="mt-2.5 border-t border-border/60 pt-2">
+          <p className="text-[12px] font-medium">
+            Equivalencia propuesta: <span className="nums">{h.equivalencia.codigoPropuesto}</span> «{h.equivalencia.descripcionPropuesta}»
+            <span className="nums ml-1.5 rounded-md bg-card px-1.5 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
+              confianza {Math.round(h.equivalencia.confianza * 100)}%
+            </span>
+          </p>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{h.equivalencia.motivo}</p>
+          <ul className="mt-1.5 space-y-0.5">
+            {h.equivalencia.evidencia.map((e, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                <MessageSquareQuote className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>
+                  <span className="font-medium text-foreground/80">{e.fuente}</span> — {e.localizador}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {h.propuestaIA && (
+        <p className="mt-2 rounded-lg bg-card px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground/80">Lectura del modelo (no decide):</span> cita del tarifario «{h.propuestaIA.descripcionCitada}» (
+          {h.propuestaIA.codigoPropuesto}){h.propuestaIA.coincideConElMotor ? ", coincide con el motor" : ", difiere del motor"}. {h.propuestaIA.motivo}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Cifra({ etiqueta, valor, nota, destacado, apagado }: { etiqueta: string; valor: string; nota?: string | null; destacado?: boolean; apagado?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{etiqueta}</p>
+      <p className={cn("nums text-[13px] font-semibold", destacado && "text-amber-700", apagado && "text-muted-foreground")}>{valor}</p>
+      {nota && <p className="nums text-[10.5px] leading-tight text-muted-foreground">{nota}</p>}
     </div>
   );
 }

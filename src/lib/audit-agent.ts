@@ -102,6 +102,64 @@ Devuelve EXCLUSIVAMENTE JSON válido: {"resumen": "2-4 oraciones"}`,
   }
 }
 
+/**
+ * Equivalencias con el catálogo · el LLM LEE Y CITA, no decide.
+ * Para cada hallazgo R4 (partida sin código en el convenio) el modelo puede proponer un
+ * código alternativo, pero solo se guarda si el código existe en el tarifario Y la
+ * descripción que cita es VERBATIM la del catálogo. Queda como propuesta junto a la del
+ * motor determinista; el hallazgo, su severidad y su monto no cambian.
+ */
+async function sugerirEquivalenciasConLLM(facturaId: string): Promise<number> {
+  if (process.env.JIDOKA_DISABLE_IA === "1") return 0;
+  const hallazgosR4 = await db.hallazgo.findMany({ where: { facturaId, regla: "R4" } });
+  if (!hallazgosR4.length) return 0;
+  const factura = await db.factura.findUniqueOrThrow({ where: { id: facturaId } });
+  const catalogo = await db.tarifarioItem.findMany({ where: { tallerId: factura.tallerId } });
+  if (!catalogo.length) return 0;
+
+  let guardadas = 0;
+  try {
+    const zai = await ZAI.create();
+    for (const h of hallazgosR4) {
+      const detalle = JSON.parse(h.detalle || "{}") as Record<string, unknown> & { equivalencia?: { codigoPropuesto?: string } | null };
+      const completion = await zai.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: `Eres asistente de catalogación de un auditor de facturas de taller (Panamá). Te dan UNA partida facturada y el TARIFARIO PACTADO completo. Tu único trabajo es señalar cuál ítem del tarifario podría ser el equivalente y CITAR su descripción exacta. Reglas absolutas:
+- Solo puedes elegir un código que aparezca literalmente en el tarifario dado; si ninguno equivale, responde con codigo vacío.
+- "descripcionCitada" debe ser el texto EXACTO del tarifario, carácter por carácter, sin reescribirlo.
+- NO decides nada: no apruebas, no rechazas, no cambias montos ni códigos. Es una sugerencia para el auditor humano.
+Devuelve EXCLUSIVAMENTE JSON: {"codigo": "...", "descripcionCitada": "...", "motivo": "una oración"}`,
+          },
+          {
+            role: "user",
+            content: `PARTIDA FACTURADA: código ${detalle.codigo} · «${detalle.descripcion}» · ${detalle.cantidad} ${detalle.unidad}\n\nTARIFARIO PACTADO:\n${catalogo
+              .map((c) => `${c.codigo} | ${c.categoria} | ${c.descripcion} | ${c.unidad} | $${c.precioPactado}`)
+              .join("\n")}`,
+          },
+        ],
+      });
+      const raw = (completion.choices[0]?.message?.content ?? "").replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
+      const item = catalogo.find((c) => c.codigo === String(parsed.codigo ?? "").trim());
+      // Guard anti-alucinación: el código existe y la cita es literal, o se descarta.
+      if (!item || item.descripcion.trim() !== String(parsed.descripcionCitada ?? "").trim()) continue;
+      detalle.propuestaIA = {
+        codigoPropuesto: item.codigo,
+        descripcionCitada: item.descripcion,
+        motivo: String(parsed.motivo ?? "").slice(0, 300),
+        coincideConElMotor: detalle.equivalencia?.codigoPropuesto === item.codigo,
+      };
+      await db.hallazgo.update({ where: { id: h.id }, data: { detalle: JSON.stringify(detalle) } });
+      guardadas++;
+    }
+  } catch {
+    return guardadas; // sin nube o con respuesta inválida, el motor determinista ya dejó su propuesta
+  }
+  return guardadas;
+}
+
 /** Genera el informe del agente (determinista + redacción LLM opcional) y lo persiste. */
 export async function generarInformeAgente(facturaId: string): Promise<InformeAgente> {
   const factura = await db.factura.findUniqueOrThrow({
@@ -185,6 +243,12 @@ export async function ejecutarAuditoria(facturaId: string): Promise<{
       ? `${resultado.hallazgos.length} hallazgo(s) determinista(s) con cita de evidencia — ${resultado.hallazgos.map((h) => h.tipo).join(", ")}. Riesgo consolidado ${resultado.riesgo}/100.`
       : "0 hallazgos: todas las líneas cumplen tarifario, sin duplicados ni inconsistencias internas."
   );
+
+  // El motor ya propuso la equivalencia determinista; el LLM solo agrega una alternativa citada.
+  const sugeridas = await sugerirEquivalenciasConLLM(facturaId);
+  if (sugeridas) {
+    await log("IA", `El modelo propuso ${sugeridas} equivalencia(s) de catálogo citando el tarifario textualmente. Son propuestas: el motor mantiene el hallazgo y decide el auditor.`);
+  }
 
   const ajusteProp = round2(resultado.hallazgos.reduce((a, h) => a + (h.ajustePropuesto ?? 0), 0));
   await db.factura.update({

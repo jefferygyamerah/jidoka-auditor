@@ -1,0 +1,88 @@
+{
+  "id": "EXP-13",
+  "titulo": "R4 · partida sin código pero equivalente al catálogo",
+  "descripcion": "El taller factura «Bómper delantero» con un código propio (B-7788). No está en el convenio, pero el motor propone la equivalencia R-1001 «Parachoques delantero» con su confianza y la cita del tarifario. El hallazgo NO desaparece: baja a BAJA y lo confirma el auditor.",
+  "taller": {
+    "nombre": "Taller Costa del Este, S.A. (DEMO)",
+    "ruc": "1877-451-220",
+    "ciudad": "Panamá",
+    "telefono": "203-7781",
+    "contacto": "Yaritza Pimentel"
+  },
+  "tarifario": [
+    {
+      "codigo": "R-1001",
+      "categoria": "REPUESTO",
+      "descripcion": "Parachoques delantero",
+      "unidad": "UND",
+      "precioPactado": 320
+    },
+    {
+      "codigo": "M-3001",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Desmontaje e instalación de parachoques",
+      "unidad": "HRS",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP13",
+    "poliza": "AUT-DEMO-EXP13",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Kia Sportage",
+    "anioVehiculo": 2023,
+    "placa": "C000013",
+    "fechaOcurrencia": "2026-08-28",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "FRENTE",
+    "descripcion": "Colisión frontal contra baranda: parachoques delantero destruido.",
+    "montoReserva": 3500
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP13",
+      "fechaEmision": "2026-09-05",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "B-7788",
+          "cantidad": 1,
+          "precioUnitario": 320,
+          "descripcion": "Bómper delantero",
+          "categoria": "REPUESTO",
+          "unidad": "UND"
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 2,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP13",
+    "sinEvaluar": false,
+    "riesgo": 4,
+    "montoDiscrepancia": 320,
+    "hallazgos": [
+      {
+        "regla": "R4",
+        "linea": 1
+      }
+    ]
+  }
+}
