@@ -1,0 +1,107 @@
+{
+  "id": "EXP-05",
+  "titulo": "R3 · factura duplicada (huella)",
+  "descripcion": "Dos facturas del mismo taller con contenido económico idéntico: la segunda se marca como posible doble cobro.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "R-1002",
+      "categoria": "REPUESTO",
+      "descripcion": "Parachoques trasero",
+      "unidad": "UND",
+      "precioPactado": 265
+    },
+    {
+      "codigo": "M-3001",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Desmontaje e instalación de parachoques",
+      "unidad": "HRS",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP05",
+    "poliza": "AUT-DEMO-EXP05",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "TRASERA",
+    "descripcion": "Alcance trasero. Parachoques trasero.",
+    "montoReserva": 3100
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP05-A",
+      "fechaEmision": "2026-08-28",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1002",
+          "cantidad": 1,
+          "precioUnitario": 265
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 3,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    },
+    {
+      "numero": "FAC-EXP05-B",
+      "fechaEmision": "2026-09-03",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1002",
+          "cantidad": 1,
+          "precioUnitario": 265
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 3,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP05-B",
+    "sinEvaluar": false,
+    "riesgo": 42,
+    "montoDiscrepancia": 442.98,
+    "hallazgos": [
+      {
+        "regla": "R3"
+      }
+    ]
+  }
+}

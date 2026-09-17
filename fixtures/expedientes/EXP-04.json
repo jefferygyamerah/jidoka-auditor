@@ -1,0 +1,87 @@
+{
+  "id": "EXP-04",
+  "titulo": "Repetición legítima con contexto",
+  "descripcion": "Pintura de panel dos veces, cada una con su panel documentado: NO es duplicado. Mismo código, contextos distintos.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "M-3002",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Preparación y pintura de panel",
+      "unidad": "HRS",
+      "precioPactado": 32
+    },
+    {
+      "codigo": "I-2001",
+      "categoria": "INSUMO",
+      "descripcion": "Pintura base poliuretano",
+      "unidad": "GLB",
+      "precioPactado": 38
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP04",
+    "poliza": "AUT-DEMO-EXP04",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "LATERAL_IZQ",
+    "descripcion": "Rayón lateral izquierdo. Puertas delantera y trasera izquierdas.",
+    "montoReserva": 4750
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP04",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "M-3002",
+          "cantidad": 4,
+          "precioUnitario": 32,
+          "contexto": "Puerta delantera izquierda"
+        },
+        {
+          "codigo": "M-3002",
+          "cantidad": 3,
+          "precioUnitario": 32,
+          "contexto": "Puerta trasera izquierda"
+        },
+        {
+          "codigo": "I-2001",
+          "cantidad": 4,
+          "precioUnitario": 38
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP04",
+    "sinEvaluar": false,
+    "riesgo": 0,
+    "montoDiscrepancia": 0,
+    "hallazgos": []
+  }
+}
