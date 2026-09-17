@@ -1,4 +1,49 @@
-# JIDOKA — Auditoría agéntica de facturación de siniestros
+#!/usr/bin/env python3
+"""Un-shot: hacer el repo jidoka-auditor publicable.
+1) Untrackear .env, db/custom.db, deploy/tunnel-config.yml (dejar en disco).
+2) .gitignore: añadir /db/, deploy logs y artefactos locales.
+3) Regenerar db/seed-db.sql (dump limpio, datos sintéticos) si no existe.
+4) Crear README para jueces + .env.example.
+5) Commit. (El push y el flip a público los hace Jeff o el operador con gh.)
+"""
+import os
+import subprocess
+import sqlite3
+
+R = '/home/jeffery/Workspace/jidoka-auditor'
+os.chdir(R)
+
+def sh(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+# 1) untrack
+for f in ['.env', 'db/custom.db', 'deploy/tunnel-config.yml']:
+    r = sh('git', 'rm', '--cached', f)
+    print(f'untrack {f}:', (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else 'ok')
+
+# 2) gitignore additions (idempotente)
+need = ['/db/', 'deploy/*.log', 'deploy/server.pid', 'deploy/ux-after.png', 'deploy/shot.js', 'dev.log', 'server.log']
+gi = open('.gitignore').read()
+add = [n for n in need if n not in gi]
+if add:
+    with open('.gitignore', 'a') as fh:
+        fh.write('\n# local runtime & deploy artifacts (AgentKwame)\n' + '\n'.join(add) + '\n')
+    print('gitignore +', add)
+
+# 3) dump SQL de la seed (datos 100% sintéticos, reproducible)
+con = sqlite3.connect('db/custom.db')
+with open('db/seed-db.sql', 'w') as fh:
+    for line in con.iterdump():
+        fh.write(line + '\n')
+con.close()
+print('db/seed-db.sql escrito')
+
+# 4) .env.example
+example = 'DATABASE_URL=file:./db/custom.db\n'
+open('.env.example', 'w').write(example)
+
+# README para jueces (es-MX, directo, 5 minutos)
+readme = '''# JIDOKA — Auditoría agéntica de facturación de siniestros
 
 **Qué es:** un agente determinista que audita facturas de talleres contra el expediente del siniestro y el tarifario contratado. Cada hallazgo trae la evidencia línea por línea; una persona decide (aceptar / pedir evidencia / descartar). El agente nunca aprueba pagos.
 
@@ -49,3 +94,13 @@ Todos los datos son **sintéticos** (talleres, siniestros, asegurados inventados
 ## Créditos
 
 Equipo AdwenTech — hackIAthon 2026. Construido con agentes (Hermes/GLM) bajo revisión humana de cada cambio.
+'''
+open('README.md', 'w').write(readme)
+print('README.md escrito')
+
+# 5) commit
+r = sh('git', 'add', '-A')
+r = sh('git', '-c', 'user.name=AgentKwame', '-c', 'user.email=kwame@adwentech.com',
+       'commit', '-m',
+       'Publicable: untrack env/db/tunnel, seed SQL, README para jueces, .env.example')
+print('commit:', (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else 'sin cambios')
