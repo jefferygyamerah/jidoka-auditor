@@ -5,14 +5,12 @@
 // Corre sobre una BD SQLite temporal; no toca db/custom.db.
 //   bun test
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import type { PrismaClient } from "@prisma/client";
-import { cargarExpediente, leerFixtures, verificarEsperado } from "@/lib/fixtures";
+import { cargarExpediente, cargarYAuditar, leerFixtures, verificarEsperado } from "@/lib/fixtures";
+import { crearDbTemporal } from "./db-temporal";
 
-const tmp = mkdtempSync(join(tmpdir(), "jidoka-test-"));
-process.env.DATABASE_URL = `file:${join(tmp, "test.db")}`;
+const tmp = crearDbTemporal();
+process.env.DATABASE_URL = tmp.url;
 process.env.JIDOKA_DISABLE_IA = "1"; // el motor decide; el LLM no participa en las pruebas
 
 let db: PrismaClient;
@@ -20,8 +18,7 @@ let ejecutarAuditoria: (id: string) => Promise<unknown>;
 let generarInformeAgente: (id: string) => Promise<{ estadoInforme: string }>;
 
 beforeAll(async () => {
-  const push = Bun.spawnSync(["bunx", "prisma", "db", "push", "--skip-generate", "--accept-data-loss"], { env: { ...process.env } });
-  if (push.exitCode !== 0) throw new Error(`prisma db push falló: ${push.stderr.toString()}`);
+  tmp.push();
   ({ db } = await import("@/lib/db"));
   ({ ejecutarAuditoria, generarInformeAgente } = await import("@/lib/audit-agent"));
   await db.configuracion.create({ data: { id: "GLOBAL" } });
@@ -29,7 +26,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db?.$disconnect();
-  rmSync(tmp, { recursive: true, force: true });
+  tmp.limpiar();
 });
 
 const fixtures = leerFixtures();
@@ -51,4 +48,41 @@ describe("fixtures", () => {
       expect(informe.estadoInforme).toBe(exp.esperado.sinEvaluar ? "INCOMPLETO" : "LISTO");
     });
   }
+});
+
+// El cargador de la demo se corre más de una vez (README: idempotente). Volver a correrlo
+// NO puede re-auditar lo ya cargado: ejecutarAuditoria borra los hallazgos (y con ellos la
+// revisión humana) y reabre la factura. Re-auditar es una decisión explícita (--reauditar).
+describe("recargar fixtures", () => {
+  const exp = fixtures.find((f) => f.esperado.hallazgos.length > 0)!;
+  let facturaId: string;
+  let idsAntes: string[];
+
+  beforeAll(async () => {
+    facturaId = (await db.factura.findUniqueOrThrow({ where: { numero: exp.esperado.factura } })).id; // ya cargada y auditada arriba
+    const hallazgos = await db.hallazgo.findMany({ where: { facturaId }, orderBy: { id: "asc" } });
+    idsAntes = hallazgos.map((h) => h.id);
+    await db.hallazgo.update({ where: { id: idsAntes[0] }, data: { estadoRevision: "ACEPTADO", comentarioRevision: "revisado a mano", revisadoPor: "auditora" } });
+    await db.factura.update({ where: { id: facturaId }, data: { estadoAuditoria: "CERRADA" } });
+  });
+
+  test("sin --reauditar conserva los hallazgos, la revisión humana y la factura cerrada", async () => {
+    const { ids, nuevo } = await cargarYAuditar(db, exp);
+    expect(nuevo).toBe(false);
+    expect(ids[exp.esperado.factura]).toBe(facturaId);
+    const despues = await db.hallazgo.findMany({ where: { facturaId }, orderBy: { id: "asc" } });
+    expect(despues.map((h) => h.id)).toEqual(idsAntes);
+    expect(despues[0]).toMatchObject({ estadoRevision: "ACEPTADO", comentarioRevision: "revisado a mano", revisadoPor: "auditora" });
+    expect((await db.factura.findUniqueOrThrow({ where: { id: facturaId } })).estadoAuditoria).toBe("CERRADA");
+  });
+
+  test("con --reauditar sí vuelve a auditar: hallazgos nuevos, factura reabierta, resultado igual al esperado", async () => {
+    const { nuevo } = await cargarYAuditar(db, exp, { reauditar: true });
+    expect(nuevo).toBe(false);
+    const despues = await db.hallazgo.findMany({ where: { facturaId } });
+    expect(despues.map((h) => h.id)).not.toEqual(idsAntes);
+    expect(despues.every((h) => h.estadoRevision === "PENDIENTE")).toBe(true);
+    expect((await db.factura.findUniqueOrThrow({ where: { id: facturaId } })).estadoAuditoria).toBe("PARA_REVISION");
+    expect(await verificarEsperado(db, exp, facturaId)).toEqual([]);
+  });
 });

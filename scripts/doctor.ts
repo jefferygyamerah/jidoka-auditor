@@ -29,11 +29,23 @@ if (!url.startsWith("file:")) {
   reporta(existsSync(rutaDb) ? "OK" : "FALLA", "DATABASE_URL", existsSync(rutaDb) ? rutaDb : `${rutaDb} no existe (¿ruta de otra máquina? corre: bun run db:push)`);
 }
 
-// 3 · Cliente Prisma + tablas
+// 3 · Cliente Prisma + esquema COMPLETO: findFirst en cada modelo del schema selecciona todas
+//     sus columnas, así que falla si falta cualquier tabla o columna que el motor necesite
+//     (hallazgos, partidas, tarifario, siniestros, logs, revisiones…), no solo Taller/Factura.
 try {
   const { db } = await import("../src/lib/db");
-  const [talleres, facturas, cfg] = await Promise.all([db.taller.count(), db.factura.count(), db.configuracion.findUnique({ where: { id: "GLOBAL" } })]);
-  reporta("OK", "Base de datos", `${talleres} talleres · ${facturas} facturas · configuración ${cfg ? "GLOBAL presente" : "GLOBAL ausente (se crea al sembrar)"}`);
+  const { Prisma } = await import("@prisma/client");
+  const modelos = Prisma.dmmf.datamodel.models.map((m) => m.name);
+  const faltan: string[] = [];
+  for (const nombre of modelos) {
+    const delegado = db[(nombre[0].toLowerCase() + nombre.slice(1)) as keyof typeof db] as { findFirst(): Promise<unknown> };
+    await delegado.findFirst().catch((e: Error) => faltan.push(e.message.match(/(table|column) `main\.([^`]+)` does not exist/)?.[2] ?? `${nombre}: ${e.message.split("\n").at(-1)}`));
+  }
+  if (faltan.length) reporta("FALLA", "Base de datos", `esquema incompleto, falta ${faltan.join(", ")} → bun run db:push`);
+  else {
+    const [talleres, facturas, cfg] = await Promise.all([db.taller.count(), db.factura.count(), db.configuracion.findUnique({ where: { id: "GLOBAL" } })]);
+    reporta("OK", "Base de datos", `${modelos.length} tablas con sus columnas · ${talleres} talleres · ${facturas} facturas · configuración ${cfg ? "GLOBAL presente" : "GLOBAL ausente (se crea al sembrar)"}`);
+  }
   await db.$disconnect();
 } catch (e) {
   reporta("FALLA", "Base de datos", `${(e as Error).message.split("\n")[0].slice(0, 160)} → bun run db:generate && bun run db:push`);

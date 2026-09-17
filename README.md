@@ -22,9 +22,10 @@ bun run dev                                          # http://localhost:3000
 ## Verificar
 
 ```bash
-bun run doctor            # ¿puede auditar en esta máquina sin nube? (sale 1 si no)
+bun run doctor            # ¿puede auditar en esta máquina sin nube? (sale 1 si falta cualquier tabla o columna)
 bun test                  # cada expediente de fixtures/ produce EXACTAMENTE lo esperado
-bun run fixtures:cargar   # carga los expedientes en la BD de demo y los contrasta
+bun run fixtures:cargar   # carga los expedientes nuevos en la BD de demo y los contrasta; lo ya cargado se conserva (revisión humana incluida)
+bun run fixtures:cargar --reauditar   # vuelve a auditar TODO: borra hallazgos y revisiones, reabre las facturas
 ```
 
 ## Reglas del motor

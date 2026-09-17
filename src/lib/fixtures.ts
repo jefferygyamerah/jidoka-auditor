@@ -94,6 +94,23 @@ export async function cargarExpediente(db: PrismaClient, exp: ExpedienteFixture)
   return ids;
 }
 
+/**
+ * Carga el expediente y lo audita SOLO si es nuevo. Re-auditar borra los hallazgos (y con ellos
+ * la revisión humana) y reabre la factura, así que solo pasa con reauditar=true.
+ */
+export async function cargarYAuditar(db: PrismaClient, exp: ExpedienteFixture, { reauditar = false } = {}): Promise<{ ids: Record<string, string>; nuevo: boolean }> {
+  const nuevo = (await db.factura.count({ where: { numero: { in: exp.facturas.map((f) => f.numero) } } })) === 0;
+  const ids = await cargarExpediente(db, exp);
+  if (nuevo || reauditar) {
+    const { ejecutarAuditoria, generarInformeAgente } = await import("./audit-agent"); // perezoso: audit-agent abre la BD al importarse
+    for (const f of exp.facturas) { // en orden: R3 necesita la gemela anterior
+      await ejecutarAuditoria(ids[f.numero]);
+      await generarInformeAgente(ids[f.numero]);
+    }
+  }
+  return { ids, nuevo };
+}
+
 /** Compara lo que el motor dejó en la BD con `esperado`. Devuelve diferencias (vacío = OK). */
 export async function verificarEsperado(db: PrismaClient, exp: ExpedienteFixture, facturaId: string): Promise<string[]> {
   const e = exp.esperado;
