@@ -42,6 +42,10 @@ Next.js 16 (App Router) · Prisma + SQLite · motor de reglas puro en `src/lib/m
 Factura → Reglas deterministas → Hallazgos con evidencia → Revisión humana → Informe
 ```
 
+## Entregable obligatorio · Herramientas de IA
+
+**[HACKIATHON-HERRAMIENTAS-IA-V5.pdf](docs/hackathon/HACKIATHON-HERRAMIENTAS-IA-V5.pdf)** — declaración de herramientas de IA usadas (Bases §2–3), con dos diagramas del diseño: el núcleo determinista (el motor decide, el LLM solo redacta, con compuerta de validación) y el humano en el circuito (aceptar · pedir evidencia · descartar con motivo).
+
 ## Datos
 
 Todos los datos son **sintéticos** (talleres, siniestros, asegurados inventados). La semilla reproducible vive en `db/seed-db.sql` y `scripts/seed.ts`. No se versionan modelos, caches ni secretos.
