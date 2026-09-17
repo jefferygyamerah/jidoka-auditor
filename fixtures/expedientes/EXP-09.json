@@ -1,0 +1,96 @@
+{
+  "id": "EXP-09",
+  "titulo": "R8 · honorarios sobre el tope",
+  "descripcion": "Honorarios $225 sobre base técnica $349 (64 %) con tope pactado 20 %: exceso $155.20.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "R-1002",
+      "categoria": "REPUESTO",
+      "descripcion": "Parachoques trasero",
+      "unidad": "UND",
+      "precioPactado": 265
+    },
+    {
+      "codigo": "M-3001",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Desmontaje e instalación de parachoques",
+      "unidad": "HRS",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    },
+    {
+      "codigo": "H-4002",
+      "categoria": "HONORARIO",
+      "descripcion": "Peritaje interno",
+      "unidad": "SRV",
+      "precioPactado": 80
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP09",
+    "poliza": "AUT-DEMO-EXP09",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "TRASERA",
+    "descripcion": "Alcance trasero.",
+    "montoReserva": 3100
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP09",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1002",
+          "cantidad": 1,
+          "precioUnitario": 265
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 3,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        },
+        {
+          "codigo": "H-4002",
+          "cantidad": 2,
+          "precioUnitario": 80
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP09",
+    "sinEvaluar": false,
+    "riesgo": 26,
+    "montoDiscrepancia": 155.2,
+    "hallazgos": [
+      {
+        "regla": "R8"
+      }
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "id": "EXP-12",
+  "titulo": "R9 · reserva excedida",
+  "descripcion": "Cobertura de vidrios con reserva $950 y factura de $1,113.87 (+17 %): excede la reserva autorizada.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "R-1015",
+      "categoria": "REPUESTO",
+      "descripcion": "Parabrisas",
+      "unidad": "UND",
+      "precioPactado": 230
+    },
+    {
+      "codigo": "M-3002",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Preparación y pintura de panel",
+      "unidad": "HRS",
+      "precioPactado": 32
+    },
+    {
+      "codigo": "I-2001",
+      "categoria": "INSUMO",
+      "descripcion": "Pintura base poliuretano",
+      "unidad": "GLB",
+      "precioPactado": 38
+    },
+    {
+      "codigo": "M-3007",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Mano de obra mecánica general",
+      "unidad": "HRS",
+      "precioPactado": 26
+    },
+    {
+      "codigo": "I-2007",
+      "categoria": "INSUMO",
+      "descripcion": "Anticorrosivo",
+      "unidad": "GLB",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP12",
+    "poliza": "AUT-DEMO-EXP12",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Vidrios",
+    "zonaDanio": "VIDRIOS",
+    "descripcion": "Impacto de piedra, rotura de parabrisas.",
+    "montoReserva": 950
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP12",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1015",
+          "cantidad": 1,
+          "precioUnitario": 230
+        },
+        {
+          "codigo": "M-3002",
+          "cantidad": 10,
+          "precioUnitario": 32
+        },
+        {
+          "codigo": "I-2001",
+          "cantidad": 5,
+          "precioUnitario": 38
+        },
+        {
+          "codigo": "M-3007",
+          "cantidad": 8,
+          "precioUnitario": 26
+        },
+        {
+          "codigo": "I-2007",
+          "cantidad": 1,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP12",
+    "sinEvaluar": false,
+    "riesgo": 12,
+    "montoDiscrepancia": 163.87,
+    "hallazgos": [
+      {
+        "regla": "R9"
+      }
+    ]
+  }
+}

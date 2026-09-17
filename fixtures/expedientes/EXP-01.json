@@ -1,0 +1,104 @@
+{
+  "id": "EXP-01",
+  "titulo": "Factura conforme",
+  "descripcion": "Todas las líneas al precio pactado, sin repeticiones, zona coherente con el siniestro. El motor no debe inventar nada.",
+  "taller": {
+    "nombre": "Autocentro Vía España, S.A. (DEMO)",
+    "ruc": "1556-328-110",
+    "ciudad": "Panamá",
+    "telefono": "223-4410",
+    "contacto": "Ernesto Saldaña"
+  },
+  "tarifario": [
+    {
+      "codigo": "R-1001",
+      "categoria": "REPUESTO",
+      "descripcion": "Parachoques delantero",
+      "unidad": "UND",
+      "precioPactado": 285
+    },
+    {
+      "codigo": "R-1004",
+      "categoria": "REPUESTO",
+      "descripcion": "Faro derecho",
+      "unidad": "UND",
+      "precioPactado": 175
+    },
+    {
+      "codigo": "M-3001",
+      "categoria": "MANO_OBRA",
+      "descripcion": "Desmontaje e instalación de parachoques",
+      "unidad": "HRS",
+      "precioPactado": 28
+    },
+    {
+      "codigo": "I-2001",
+      "categoria": "INSUMO",
+      "descripcion": "Pintura base poliuretano",
+      "unidad": "GLB",
+      "precioPactado": 38
+    },
+    {
+      "codigo": "H-4001",
+      "categoria": "HONORARIO",
+      "descripcion": "Administración de siniestro",
+      "unidad": "SRV",
+      "precioPactado": 65
+    }
+  ],
+  "siniestro": {
+    "numero": "SIN-EXP01",
+    "poliza": "AUT-DEMO-EXP01",
+    "asegurado": "Asegurado DEMO",
+    "vehiculo": "Toyota Corolla",
+    "anioVehiculo": 2022,
+    "placa": "C000000",
+    "fechaOcurrencia": "2026-08-20",
+    "tipoCobertura": "Colisión",
+    "zonaDanio": "FRENTE",
+    "descripcion": "Colisión frontal leve. Parachoques delantero y faro derecho.",
+    "montoReserva": 3850
+  },
+  "facturas": [
+    {
+      "numero": "FAC-EXP01",
+      "fechaEmision": "2026-09-01",
+      "itbmsPct": 7,
+      "montoTotal": null,
+      "partidas": [
+        {
+          "codigo": "R-1001",
+          "cantidad": 1,
+          "precioUnitario": 285
+        },
+        {
+          "codigo": "R-1004",
+          "cantidad": 1,
+          "precioUnitario": 175
+        },
+        {
+          "codigo": "M-3001",
+          "cantidad": 3,
+          "precioUnitario": 28
+        },
+        {
+          "codigo": "I-2001",
+          "cantidad": 2.5,
+          "precioUnitario": 38
+        },
+        {
+          "codigo": "H-4001",
+          "cantidad": 1,
+          "precioUnitario": 65
+        }
+      ]
+    }
+  ],
+  "esperado": {
+    "factura": "FAC-EXP01",
+    "sinEvaluar": false,
+    "riesgo": 0,
+    "montoDiscrepancia": 0,
+    "hallazgos": []
+  }
+}
