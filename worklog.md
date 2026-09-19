@@ -39,6 +39,17 @@ Work Log:
 - Re-seed de la BD (JIDOKA_DISABLE_IA=1) para purgar mensajes antiguos con prefijo japonés. Estados: 22 APROBADA / 6 OBSERVADA / 4 RECHAZADA.
 - Verificado en navegador (Panel de control, Diseño y principios, cola, expediente, roles Agente/Taller) y lint completo limpio.
 
+---
+
+## 2026-09-19 · Incidente — demo pública caída en silencio y restauración
+
+- Jeff reportó jidoka.adwentech.com caído sin aviso la noche del 2026-09-19 (post-entrega hackIAthon).
+- Diagnóstico: el origen (Next.js standalone en 127.0.0.1:3100) y el túnel Cloudflare nombrado 934a420e corrían como procesos de fondo de una sesión de agente anterior; la rotación/cierre de esa sesión mató ambos procesos sin alerta. Túneles del sistema (aios-cockpit, ceo) intactos — el fallo era solo de la demo.
+- Segundo hallazgo: el directorio de lanzamiento documentado (next-service-dist/) ya no existe en este checkout; el build vivo está en .next/standalone/ (assets estáticos y public embebidos, BUILD_ID MVbJguJaQrz7yjE5SbNx5). Primer intento de arranque falló por cd a next-service-dist.
+- Corrección: relanzado origen desde .next/standalone con PORT=3100, DATABASE_URL=file:db/custom.db (bun server.js) + túnel cloudflared con deploy/tunnel-config.yml (protocol http2, 4 conexiones registradas).
+- Verificación: HTTP 200 público y local, título correcto «JIDOKA · Auditoría Inteligente de Facturación de Siniestros», chunk CSS 200, /api/dashboard 200 con datos (34 facturas), log del túnel con 4 conexiones registradas.
+- Pendiente estructural: ambos procesos siguen ligados a la sesión del agente; la caída se repetirá tras reinicio del Pi o rotación de sesión. Recomendación: unidades systemd (jidoka-origin.service + jidoka-tunnel.service) cuando el proyecto estabilice — decisión de Jeff.
+
 Stage Summary:
 - La marca "JIDOKA" se conserva solo como nombre del producto (logo, título, footer); todo el copy operativa está en español natural. Cambio de nombre de marca disponible a pedido (1 línea).
 - Claves internas de código (vista "andon"/"jidoka", campo andon en API, componente PuntoAndon) se mantienen: no son visibles al usuario.
